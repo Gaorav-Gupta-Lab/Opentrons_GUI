@@ -12,8 +12,6 @@ Copyright 2021
 import subprocess
 import sys
 import os
-# from StringIO import StringIO
-
 from UI_MainWindow import Ui_MainWindow
 from PySide2 import QtWidgets, QtGui, QtCore
 from PySide2.QtWidgets import QApplication
