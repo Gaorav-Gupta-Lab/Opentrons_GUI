@@ -8,7 +8,7 @@
     <x>0</x>
     <y>0</y>
     <width>1040</width>
-    <height>947</height>
+    <height>871</height>
    </rect>
   </property>
   <property name="font">
@@ -28,7 +28,7 @@
    <widget class="QPushButton" name="tsv_file_select_btn">
     <property name="geometry">
      <rect>
-      <x>250</x>
+      <x>280</x>
       <y>80</y>
       <width>451</width>
       <height>51</height>
@@ -40,7 +40,7 @@
      </font>
     </property>
     <property name="text">
-     <string>Transfer TSV File</string>
+     <string>Select TSV File</string>
     </property>
     <property name="checkable">
      <bool>true</bool>
@@ -64,16 +64,16 @@
     </property>
     <property name="geometry">
      <rect>
-      <x>79</x>
+      <x>59</x>
       <y>9</y>
-      <width>861</width>
+      <width>911</width>
       <height>51</height>
      </rect>
     </property>
     <property name="font">
      <font>
       <family>Comic Sans MS</family>
-      <pointsize>18</pointsize>
+      <pointsize>22</pointsize>
      </font>
     </property>
     <property name="frameShape">
@@ -89,7 +89,7 @@
    <widget class="QPushButton" name="closeGUI_btn">
     <property name="geometry">
      <rect>
-      <x>320</x>
+      <x>310</x>
       <y>650</y>
       <width>351</width>
       <height>81</height>
@@ -108,7 +108,7 @@
    <widget class="QPushButton" name="simulate_run_btn">
     <property name="geometry">
      <rect>
-      <x>251</x>
+      <x>281</x>
       <y>320</y>
       <width>451</width>
       <height>51</height>
@@ -127,15 +127,16 @@
    <widget class="QTextBrowser" name="run_simulation_output">
     <property name="geometry">
      <rect>
-      <x>101</x>
+      <x>51</x>
       <y>390</y>
-      <width>821</width>
-      <height>211</height>
+      <width>921</width>
+      <height>231</height>
      </rect>
     </property>
     <property name="font">
      <font>
-      <pointsize>12</pointsize>
+      <family>Arial</family>
+      <pointsize>11</pointsize>
      </font>
     </property>
     <property name="placeholderText">
@@ -145,8 +146,8 @@
    <widget class="QComboBox" name="select_program_combobx">
     <property name="geometry">
      <rect>
-      <x>251</x>
-      <y>250</y>
+      <x>281</x>
+      <y>220</y>
       <width>451</width>
       <height>51</height>
      </rect>
@@ -158,14 +159,19 @@
    <widget class="QLabel" name="select_program_label">
     <property name="geometry">
      <rect>
-      <x>251</x>
-      <y>210</y>
-      <width>361</width>
+      <x>280</x>
+      <y>170</y>
+      <width>451</width>
       <height>41</height>
      </rect>
     </property>
+    <property name="font">
+     <font>
+      <pointsize>16</pointsize>
+     </font>
+    </property>
     <property name="text">
-     <string>Select Program for Simulation</string>
+     <string>Select Program for Simulation:</string>
     </property>
    </widget>
   </widget>
