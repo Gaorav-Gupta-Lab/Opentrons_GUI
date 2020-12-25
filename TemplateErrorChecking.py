@@ -14,6 +14,8 @@ from collections import defaultdict
 from types import SimpleNamespace
 import csv
 
+__version__ = "0.4.0"
+
 
 class TemplateErrorChecking:
     def __init__(self, input_file):
@@ -24,7 +26,8 @@ class TemplateErrorChecking:
         self.pipette_information()
         self.well_label_dict = self.well_labels()
 
-    def parse_sample_file(self, input_file):
+    @staticmethod
+    def parse_sample_file(input_file):
         """
         Parse TSV file
         :param input_file:
@@ -69,8 +72,9 @@ class TemplateErrorChecking:
 
     def slot_error_check(self):
         slot_error = False
-        slot_list = ["Slot1", "Slot2", "Slot3", "Slot4", "Slot5", "Slot6", "Slot7", "Slot8", "Slot9", "Slot10",
-                     "Slot11"]
+        slot_list = \
+            ["Slot1", "Slot2", "Slot3", "Slot4", "Slot5", "Slot6", "Slot7", "Slot8", "Slot9", "Slot10", "Slot11"]
+
         slot_dict = {}
         print("Checking Labware Definitions in Slots")
 
@@ -85,7 +89,7 @@ class TemplateErrorChecking:
         if slot_error:
             print("NOTICE: There are errors in the labware definitions.  Correct these and run again\n")
         else:
-            print("\t\tLabware definitions in slots passed")
+            print("\tLabware definitions in slots passed")
 
         self.slot_dict = slot_dict
 
@@ -208,7 +212,8 @@ class TemplateErrorChecking:
         """
         labware_list = [
             "opentrons_24_tuberack_eppendorf_1.5ml_safelock_snapcap", "stacked_96_well", "8_well_strip_tubes_200ul",
-            "opentrons_96_tiprack_10ul", "opentrons_96_tiprack_20ul", "opentrons_96_tiprack_300ul"]
+            "opentrons_96_tiprack_10ul", "opentrons_96_tiprack_20ul", "opentrons_96_tiprack_300ul",
+            "vwrscrewcapcentrifugetube5ml_15_tuberack_5000ul"]
 
         return labware_list
 
@@ -219,8 +224,10 @@ class TemplateErrorChecking:
         """
 
         def well_list(row_count, column_count):
-            row_labels = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S",
-                          "T", "U", "V", "W", "X", "Y", "Z"]
+            row_labels = \
+                ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T",
+                 "U", "V", "W", "X", "Y", "Z"]
+
             temp_list = []
             for r in range(row_count):
                 for i in range(column_count):
@@ -232,11 +239,15 @@ class TemplateErrorChecking:
         for labware in self.labware_slot_definitions:
             w96 = well_list(8, 12)
             w24 = well_list(4, 6)
+            w15 = well_list(3, 5)
 
             if "24" in labware:
                 well_labels_dict[labware] = w24
             elif "96" in labware:
                 well_labels_dict[labware] = w96
+            elif "_15_tuberack" in labware:
+
+                well_labels_dict[labware] = w15
             elif len(well_labels_dict) == 0:
                 msg = "Well label definitions failed.  Incorrect labware passed.  Template file is bad"
                 print("ERROR:  {}".format(msg))
