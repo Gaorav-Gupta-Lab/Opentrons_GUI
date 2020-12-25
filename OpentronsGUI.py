@@ -23,7 +23,7 @@ from paramiko import SSHClient, AutoAddPolicy
 from contextlib import redirect_stdout
 from scp import SCPClient
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 # pyside2-uic MainWindow.ui -o UI_MainWindow.py
 
 
@@ -38,7 +38,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.selected_program = None
         self.path_to_program = None
         self.program_error = True
-        self.temp_tsv_path = "D:{}TempTSV.tsv".format(os.sep)
+        self.temp_tsv_path = "C:{0}Users{0}{1}{0}Documents{0}TempTSV.tsv".format(os.sep, os.getlogin())
         self.tsv_file_select_btn.pressed.connect(self.select_file)
         self.closeGUI_btn.pressed.connect(self.exit_gui)
         self.simulate_run_btn.pressed.connect(self.simulate_run)
@@ -58,7 +58,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def select_file(self):
         self.path_to_tsv, _ = \
             QtWidgets.QFileDialog.getOpenFileName(self, self.tr("File Select"),
-                                                  self.tr("C:{0}Users{0}robotron{0}Documents{0}".format(os.sep)))
+                                                  self.tr("C:{0}Users{0}{1}{0}Documents{0}".
+                                                          format(os.sep, os.getlogin())))
 
         shutil.copyfile(self.path_to_tsv, self.temp_tsv_path)
 
@@ -142,7 +143,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     return
 
         self.run_simulation_output.insertPlainText('{}'.format(f.getvalue()))
-        self.path_to_program = "C:{0}Opentrons_Programs{0}Generic_PCR_v0.2.0.py".format(os.sep)
+        self.path_to_program = "C:{0}Opentrons_Programs{0}Generic_PCR.py".format(os.sep)
         self.run_simulation_output.insertPlainText('Begin Program Simulation.\n\tErrors stop program and are reported '
                                                    'in command window not GUI\n'.format(f.getvalue()))
         try:
@@ -154,17 +155,18 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.run_simulation_output.insertPlainText("\n")
         self.success_report("Simulations were successful.", "Simulation Module")
         os.remove(self.temp_tsv_path)
-        self.transfer_tsv_file()
 
     def simulate_program(self):
         # Select program file if not located where we think it is.
         if not os.path.isfile(self.path_to_program):
             self.path_to_program, _ = \
                 QtWidgets.QFileDialog.getOpenFileName(self, self.tr("Select Program File"),
-                                                      self.tr("C:{0}Users{0}robotron{0}Documents{0}".format(os.sep)))
+                                                      self.tr("C:{0}Users{0}{1}{0}Documents{0}".
+                                                              format(os.sep, os.getlogin())))
+
         protocol_file = open(self.path_to_program)
 
-        labware_location = "{}/custom_labware".format(os.path.dirname(self.path_to_program), os.sep)
+        labware_location = "{}{}custom_labware".format(os.path.dirname(self.path_to_program), os.sep)
         run_log, __bundle__ = simulate(protocol_file, custom_labware_paths=[labware_location], propagate_logs=True)
         self.run_simulation_output.insertPlainText(format_runlog(run_log))
 
