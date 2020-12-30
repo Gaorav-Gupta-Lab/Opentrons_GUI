@@ -68,7 +68,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.select_file()
 
         # ToDo: get robot IP dynamically
-        host_ip = '169.254.254.151'
+        host_ip = '169.254.48.252'
         server_path = "/var/lib/jupyter/notebooks/ProcedureFile.tsv"
 
         # SCP will not overwrite or delete an existing file so we need to delete the server file first.
@@ -154,6 +154,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.run_simulation_output.insertPlainText("\n")
         self.success_report("Simulations were successful.", "Simulation Module")
+        self.transfer_tsv_file()
         os.remove(self.temp_tsv_path)
 
     def simulate_program(self):
