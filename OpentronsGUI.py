@@ -14,6 +14,7 @@ import io
 import shutil
 import sys
 import os
+import socket
 from TemplateErrorChecking import TemplateErrorChecking
 from opentrons.simulate import simulate, format_runlog
 from UI_MainWindow import Ui_MainWindow
@@ -23,7 +24,7 @@ from paramiko import SSHClient, AutoAddPolicy
 from contextlib import redirect_stdout
 from scp import SCPClient
 
-__version__ = "0.3.1"
+__version__ = "0.4.0"
 # pyside2-uic MainWindow.ui -o UI_MainWindow.py
 
 
@@ -68,7 +69,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.select_file()
 
         # ToDo: get robot IP dynamically
-        host_ip = '169.254.48.252'
+        # host_ip = '169.254.48.252'
+        robot_name = "OT2CEP20180915A20"
+        try:
+            host_ip = socket.gethostbyname(robot_name)
+        except socket.gaierror:
+            self.error_report("Unable to connect to Opentrons OT-2 {}".format(robot_name))
+            return
+
         server_path = "/var/lib/jupyter/notebooks/ProcedureFile.tsv"
 
         # SCP will not overwrite or delete an existing file so we need to delete the server file first.
@@ -79,7 +87,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             ssh_client.connect(hostname=host_ip, username='root',
                                key_filename='C:{0}Users{0}robotron{0}ot2_ssh_key'.format(os.sep))
         except OSError:
-            self.error_report("Unable to establish connection to robot for TSV file transfer.")
+            self.error_report("SSH unable to establish connection to robot for TSV file transfer.")
             return
 
         # Check if file exists
@@ -194,7 +202,7 @@ def center_window(central_widget):
         w_scale = 0.79
     if screen_geometry.height() > 1200:
         h_scale = 0.45
-    print(screen_geometry.width(), screen_geometry.height())
+    # print(screen_geometry.width(), screen_geometry.height())
     central_widget.resize(screen_geometry.width()*w_scale, screen_geometry.height()*h_scale)
     central_widget.setGeometry(QtWidgets.QStyle.alignedRect(QtCore.Qt.LeftToRight, QtCore.Qt.AlignCenter,
                                                             central_widget.size(), screen_geometry, ), )
