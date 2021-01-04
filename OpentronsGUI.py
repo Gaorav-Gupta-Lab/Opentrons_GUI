@@ -128,7 +128,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.success_report("File Transferred Successfully", "File Transfer")
 
     def simulate_run(self):
-        # Todo: run simulation needs work
         if not self.selected_program:
             self.warning_report("Please Select Program for Simulation from dropdown list first.")
 
@@ -138,20 +137,34 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             # Initialize template error checking
             template_error_check = TemplateErrorChecking(self.path_to_tsv)
             slot_error = template_error_check.slot_error_check()
+            pipette_error = template_error_check.pipette_error_check()
+            tip_box_error = template_error_check.tip_box_error_check()
 
             if slot_error:
                 self.error_report("There is an error in the TSV Slot Definitions")
                 return
+            if pipette_error:
+                self.error_report("There is an error in the pipette setup")
+                return
+            if tip_box_error:
+                self.error_report("There is an error with the pipette box definitions")
 
             if self.selected_program == "Generic PCR":
                 error_msg = template_error_check.generic_pcr()
 
-                if error_msg:
-                    self.error_report(error_msg)
-                    return
+            elif self.selected_program == "Illumina_Dual_Indexing":
+                error_msg = template_error_check.illumina_dual_indexing()
+
+            if error_msg:
+                self.error_report(error_msg)
+                return
 
         self.run_simulation_output.insertPlainText('{}'.format(f.getvalue()))
-        self.path_to_program = "C:{0}Opentrons_Programs{0}Generic_PCR.py".format(os.sep)
+        if self.selected_program == "Generic PCR":
+            self.path_to_program = "C:{0}Opentrons_Programs{0}Generic_PCR.py".format(os.sep)
+        elif self.selected_program == "Illumina_Dual_Indexing":
+            self.path_to_program = "C:{0}Opentrons_Programs{0}Illumina_Dual_Indexing.py".format(os.sep)
+
         self.run_simulation_output.insertPlainText('Begin Program Simulation.\n\tErrors stop program and are reported '
                                                    'in command window not GUI\n'.format(f.getvalue()))
         try:

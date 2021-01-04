@@ -14,7 +14,7 @@ from collections import defaultdict
 from types import SimpleNamespace
 import csv
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 
 class TemplateErrorChecking:
@@ -95,11 +95,7 @@ class TemplateErrorChecking:
 
         return slot_error
 
-    def generic_pcr(self):
-        """
-        Perform error checking on the template for the Generic PCR program.
-        :return:
-        """
+    def pipette_error_check(self):
         pipette_error = False
 
         log.info("Checking Pipette Definitions")
@@ -115,8 +111,14 @@ class TemplateErrorChecking:
         else:
             print("\tPipette definitions passed.")
 
+        return pipette_error
+
+    def tip_box_error_check(self):
         print("Checking Pipette Tip Box Definitions")
         pipette_tip_box_error = False
+        lft_err_msg = ""
+        rt_err_msg = ""
+
         if self.args.LeftPipette:
             pipette_tip_box_error, lft_err_msg = \
                 self.pipette_tipbox_error_check(self.args.LeftPipetteTipRackSlot.split(","), pipette_tip_box_error,
@@ -126,28 +128,40 @@ class TemplateErrorChecking:
                 self.pipette_tipbox_error_check(self.args.RightPipetteTipRackSlot.split(","), pipette_tip_box_error,
                                                 self.args.RightPipette, "Right pipette labware")
         if pipette_tip_box_error:
-            if pipette_error:
-                print("WARNING: Pipette tip box definition error likely cause by the error in the pipette Definitions")
-            else:
-                msg = "{}{}".format(lft_err_msg, rt_err_msg)
-                print("ERROR: {}".format(msg))
-                return msg
+            msg = "{}{}".format(lft_err_msg, rt_err_msg)
+            print("ERROR: {}".format(msg))
+            return msg
         else:
             print("\tPipette tip box definitions passed")
 
+        return pipette_tip_box_error
+
+    def reagent_slot_error_check(self, reagent_labware):
+        msg = ""
         # Check the reagent slot and reagent wells
         if not self.args.ReagentSlot:
             msg = 'Reagent Slot definition missing.'
             print("ERROR: {}".format(msg))
             return msg
-
-        reagent_slot = self.args.ReagentSlot
-        reagent_labware = self.slot_dict[reagent_slot]
         for pipette in self.pipette_info_dict:
             if reagent_labware == self.pipette_info_dict[pipette]:
                 msg = "Reagent slot contains a pipette tip box"
                 print("ERROR: {}".format(msg))
                 return msg
+        return msg
+
+    def generic_pcr(self):
+        """
+        Perform error checking on the template for the Generic PCR program.
+        :return:
+        """
+
+        reagent_slot = self.args.ReagentSlot
+        reagent_labware = self.slot_dict[reagent_slot]
+
+        msg = self.reagent_slot_error_check(reagent_labware)
+        if msg:
+            return msg
 
         water_control_slot = self.args.WaterControl.split(",")[0]
         water_control_labware = self.slot_dict[water_control_slot]
@@ -183,6 +197,48 @@ class TemplateErrorChecking:
             print("The Water Control labware is not correctly defined.")
         if not reagent_labware_pass:
             print("ERROR: The Reagent labware is not correctly defined.")
+
+        # Process Sample data;
+        source_test = []
+        dest_test = []
+        for sample_key in self.sample_dictionary:
+            sample_source_slot = self.sample_dictionary[sample_key][0]
+            sample_source_well = self.sample_dictionary[sample_key][1]
+            sample_dest_slot = self.sample_dictionary[sample_key][4]
+            # sample_dest_labware = self.labware_slot_definitions[int(sample_dest_slot)]
+            sample_dest_well = self.sample_dictionary[sample_key][5]
+            source_test.append("{}+{}".format(sample_source_slot, sample_source_well))
+
+            # If there are replicates a single sample can have more than one destination well.
+            for well in sample_dest_well:
+                dest_test.append("{}+{}".format(sample_dest_slot, well))
+        for source in source_test:
+            if source in dest_test:
+                msg = "More than one sample share the same source and/or destinations"
+                print("ERROR:  {}".format(msg))
+                return msg
+
+    def illumina_dual_indexing(self):
+
+        reagent_slot = self.args.ReagentSlot
+        reagent_labware = self.slot_dict[reagent_slot]
+        msg = self.reagent_slot_error_check(reagent_labware)
+
+        if msg:
+            return msg
+
+        for key in self.well_label_dict:
+            label_list = self.well_label_dict[key]
+            if key in reagent_labware:
+                if self.args.WaterWell not in label_list:
+                    msg = "The water well definition is not possible for {}".format(reagent_labware)
+                    print("ERROR: {}".format(msg))
+                    return msg
+
+                if self.args.PCR_MixWell not in label_list:
+                    msg = "The well defined for the PCR Mix is not possible for {}".format(reagent_labware)
+                    print("ERROR: {}".format(msg))
+                    return msg
 
         # Process Sample data;
         source_test = []
