@@ -267,9 +267,10 @@ class TemplateErrorChecking:
         :return:
         """
         labware_list = [
-            "opentrons_24_tuberack_eppendorf_1.5ml_safelock_snapcap", "stacked_96_well", "8_well_strip_tubes_200ul",
+            "vwrmicrocentrifugetube1.5ml_24_tuberack_1500ul", "stacked_96_well", "8_well_strip_tubes_200ul",
             "opentrons_96_tiprack_10ul", "opentrons_96_tiprack_20ul", "opentrons_96_tiprack_300ul",
-            "vwrscrewcapcentrifugetube5ml_15_tuberack_5000ul"]
+            "vwrscrewcapcentrifugetube5ml_15_tuberack_5000ul", "opentrons_24_tuberack_nest_0.5ml_screwcap",
+            "opentrons_24_tuberack_generic_2ml_screwcap"]
 
         return labware_list
 
