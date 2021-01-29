@@ -24,7 +24,7 @@ from paramiko import SSHClient, AutoAddPolicy
 from contextlib import redirect_stdout, suppress
 from scp import SCPClient
 
-__version__ = "0.6.0"
+__version__ = "0.6.1"
 # pyside2-uic MainWindow.ui -o UI_MainWindow.py
 
 
@@ -186,7 +186,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # Redirect stdout and stderr here so they can be displayed in the GUI
         f = io.StringIO()
         with redirect_stdout(f):
-            print("HERE")
             # Initialize template error checking
             template_error_check = TemplateErrorChecking(self.path_to_tsv)
             slot_error = template_error_check.slot_error_check()
@@ -221,6 +220,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         elif self.selected_program == "Illumina_Dual_Indexing":
             self.path_to_program = "C:{0}Opentrons_Programs{0}Illumina_Dual_Indexing.py".format(os.sep)
+
+        elif self.selected_program == "ddPCR":
+            self.path_to_program = "C:{0}Opentrons_Programs{0}ddPCR.py".format(os.sep)
 
         self.run_simulation_output.insertPlainText('Begin Program Simulation.\n'.format(f.getvalue()))
         try:
