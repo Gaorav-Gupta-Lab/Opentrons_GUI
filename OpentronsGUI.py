@@ -21,10 +21,10 @@ from UI_MainWindow import Ui_MainWindow
 from PySide2 import QtWidgets, QtGui, QtCore
 from PySide2.QtWidgets import QApplication
 from paramiko import SSHClient, AutoAddPolicy
-from contextlib import redirect_stdout
+from contextlib import redirect_stdout, suppress
 from scp import SCPClient
 
-__version__ = "0.4.0"
+__version__ = "0.6.0"
 # pyside2-uic MainWindow.ui -o UI_MainWindow.py
 
 
@@ -38,16 +38,49 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.path_to_tsv = None
         self.selected_program = None
         self.path_to_program = None
-        self.program_error = True
+        self.critical_error = False
+        self.server_path = "/var/lib/jupyter/notebooks/"
+        self.server_tsv_file = "ProcedureFile.tsv"
         self.temp_tsv_path = "C:{0}Users{0}{1}{0}Documents{0}TempTSV.tsv".format(os.sep, os.getlogin())
+        self.ssh_client = self.connect_to_ot2()
         self.tsv_file_select_btn.pressed.connect(self.select_file)
         self.closeGUI_btn.pressed.connect(self.exit_gui)
         self.simulate_run_btn.pressed.connect(self.simulate_run)
-        self.select_program_combobx.addItems(["Generic PCR", "Illumina_Dual_Indexing"])
+        self.select_program_combobx.addItems(["ddPCR", "Generic PCR", "Illumina_Dual_Indexing"])
         self.select_program_combobx.currentTextChanged.connect(self.program_name)
+        self.cancel_run_btn.pressed.connect(self.cancel_run)
+        self.run_ot2.pressed.connect(self.run_program)
 
-    @staticmethod
-    def exit_gui():
+    def run_program(self):
+        return
+        program_name = os.path.basename(self.path_to_program)
+        cmd = "opentrons_execute {0}{1} -L {0}custom_labware".format(self.server_path, program_name)
+        print(cmd)
+
+        self.ssh_client.get_transport()
+        self.ssh_client.invoke_shell()
+        stdin, stdout, stderr = self.ssh_client.exec_command(cmd)
+        print("After run")
+        stdout.channel.recv_exit_status()
+        stderr.channel.recv_exit_status()
+        response = stdout.readlines()
+        er = stderr.readlines()
+        for line in er:
+            print("error: ", line)
+        for line in response:
+            print("response line:  ", line)
+
+    def cancel_run(self):
+        return
+        stdin, stdout, stderr = self.ssh_client.send("\x03")
+        stdout.channel.recv_exit_status()
+        response = stdout.readlines()
+        for line in response:
+            print(line)
+
+    def exit_gui(self):
+        with suppress(AttributeError):
+            self.ssh_client.close()
         sys.exit()
 
     def program_name(self, s):
@@ -64,22 +97,20 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         shutil.copyfile(self.path_to_tsv, self.temp_tsv_path)
 
-    def transfer_tsv_file(self):
-        if not self.path_to_tsv:
-            self.select_file()
-
-        # ToDo: get robot IP dynamically
-        # host_ip = '169.254.48.252'
+    def connect_to_ot2(self):
+        """
+        Establish SSH connection to robot.
+        :return:
+        """
         robot_name = "OT2CEP20180915A20"
         try:
             host_ip = socket.gethostbyname(robot_name)
         except socket.gaierror:
-            self.error_report("Unable to connect to Opentrons OT-2 {}".format(robot_name))
-            return
+            self.error_report("Unable to connect to Opentrons OT-2 {}\n Is robot on and connected to computer?"
+                              .format(robot_name))
+            self.critical_error = True
+            raise SystemExit(1)
 
-        server_path = "/var/lib/jupyter/notebooks/ProcedureFile.tsv"
-
-        # SCP will not overwrite or delete an existing file so we need to delete the server file first.
         ssh_client = SSHClient()
         ssh_client.load_system_host_keys()
         ssh_client.set_missing_host_key_policy(AutoAddPolicy())
@@ -87,53 +118,75 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             ssh_client.connect(hostname=host_ip, username='root',
                                key_filename='C:{0}Users{0}robotron{0}ot2_ssh_key'.format(os.sep))
         except OSError:
-            self.error_report("SSH unable to establish connection to robot for TSV file transfer.")
+            self.error_report("SSH unable to establish connection to robot.  Secure Key error")
+            self.critical_error = True
+            raise SystemExit(1)
+
+        return ssh_client
+
+    def transfer_tsv_file(self):
+        """
+        If everything checks out then transfer the files to the robot.
+        :return:
+        """
+
+        # If we have a critical error then don't do anything else.
+        if self.critical_error:
             return
 
-        # Check if file exists
-        # ToDo: The remote commands not working.  Need to fix that!!!!!!!
-        file_delete = False
-        stdin, stdout, stderr = ssh_client.exec_command('stat {}'.format(server_path))
-        # stdin, stdout, stderr = ssh_client.exec_command('ls '.format(server_path))
+        if not self.path_to_tsv:
+            self.select_file()
 
-        if len(stdout.readlines()) > 0:
-            file_delete = True
-            stdin, stdout, stderr = ssh_client.exec_command('rm {}'.format(server_path))
+        # program_path = os.path.dirname(self.path_to_program)
+        program_name = os.path.basename(self.path_to_program)
 
-        m = ""
-        if len(stderr.readlines()) > 0 and file_delete:
-            for line in stdout.readlines():
-                m += m + line
+        # Initialize scp and transfer the files to the robot.
+        scp = SCPClient(self.ssh_client.get_transport())
+        # TSF file transfer
+        scp.put(files=self.path_to_tsv, remote_path="{}{}".format(self.server_path, self.server_tsv_file),
+                preserve_times=True)
 
-            self.error_report(m)
-            stderr.close()
-        elif len(stdout.readlines()) > 0 and file_delete:
-            for line in stdout.readlines():
-                m += m + line
-            self.success_report(m, "Deletion")
+        # Program file transfer
+        scp.put(files=self.path_to_program, remote_path=self.server_path, preserve_times=True)
 
-        # Now transfer the new file to the robot.
-        scp = SCPClient(ssh_client.get_transport())
-        scp.put(files=self.path_to_tsv, remote_path=server_path, preserve_times=True)
+        # Confirm files have transferred.
+        cmd = "ls {}".format(self.server_path)
+        stdin, stdout, stderr = self.ssh_client.exec_command(cmd)
+        stdout.channel.recv_exit_status()
+        response = stdout.readlines()
+        transferred_files = []
+
+        for line in response:
+            transferred_files.append(line.strip("\n"))
+
+        if self.server_tsv_file not in transferred_files:
+            self.error_report("TSV File Transfer Failed")
+            self.critical_error = True
+        elif program_name not in transferred_files:
+            self.error_report("Program File {} Transfer Failed".format(program_name))
+            self.critical_error = True
+        else:
+            self.success_report("All Files Transferred Successfully", "File Transfer")
+
         scp.close()
-        ssh_client.close()
-
-        upload_success = True
-        if len(stdout.readlines()) > 0:
-            upload_success = True
-
-        if not upload_success:
-            self.error_report("File Transfer Failed")
-        elif upload_success:
-            self.success_report("File Transferred Successfully", "File Transfer")
 
     def simulate_run(self):
+        """
+        This will check the ProcedureTSV file for syntax errors.
+        :return:
+        """
+
+        # If we have a critical error then don't do anything else.
+        if self.critical_error:
+            return
+
         if not self.selected_program:
             self.warning_report("Please Select Program for Simulation from dropdown list first.")
 
         # Redirect stdout and stderr here so they can be displayed in the GUI
         f = io.StringIO()
         with redirect_stdout(f):
+            print("HERE")
             # Initialize template error checking
             template_error_check = TemplateErrorChecking(self.path_to_tsv)
             slot_error = template_error_check.slot_error_check()
@@ -155,6 +208,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             elif self.selected_program == "Illumina_Dual_Indexing":
                 error_msg = template_error_check.illumina_dual_indexing()
 
+            elif self.selected_program == "ddPCR":
+                error_msg = template_error_check.droplet_pcr()
+
             if error_msg:
                 self.error_report(error_msg)
                 return
@@ -162,11 +218,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.run_simulation_output.insertPlainText('{}'.format(f.getvalue()))
         if self.selected_program == "Generic PCR":
             self.path_to_program = "C:{0}Opentrons_Programs{0}Generic_PCR.py".format(os.sep)
+
         elif self.selected_program == "Illumina_Dual_Indexing":
             self.path_to_program = "C:{0}Opentrons_Programs{0}Illumina_Dual_Indexing.py".format(os.sep)
 
-        self.run_simulation_output.insertPlainText('Begin Program Simulation.\n\tErrors stop program and are reported '
-                                                   'in command window not GUI\n'.format(f.getvalue()))
+        self.run_simulation_output.insertPlainText('Begin Program Simulation.\n'.format(f.getvalue()))
         try:
             self.simulate_program()
         except:
@@ -179,12 +235,20 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         os.remove(self.temp_tsv_path)
 
     def simulate_program(self):
+        """
+        This will run an Opentrons simulation on the program.
+        """
+
+        # If we have a critical error then don't do anything else.
+        if self.critical_error:
+            return
+
         # Select program file if not located where we think it is.
         if not os.path.isfile(self.path_to_program):
             self.path_to_program, _ = \
                 QtWidgets.QFileDialog.getOpenFileName(self, self.tr("Select Program File"),
-                                                      self.tr("C:{0}Users{0}{1}{0}Documents{0}".
-                                                              format(os.sep, os.getlogin())))
+                                                      self.tr("C:{0}Users{0}{1}{0}Documents{0}"
+                                                              .format(os.sep, os.getlogin())))
 
         protocol_file = open(self.path_to_program)
 

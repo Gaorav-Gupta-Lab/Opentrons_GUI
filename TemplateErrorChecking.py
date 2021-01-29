@@ -150,6 +150,29 @@ class TemplateErrorChecking:
                 return msg
         return msg
 
+    def droplet_pcr(self):
+
+        reagent_slot = self.args.ReagentSlot
+        reagent_labware = self.slot_dict[reagent_slot]
+
+        msg = self.reagent_slot_error_check(reagent_labware)
+        if msg:
+            return msg
+
+        msg = ""
+        for i in range(10):
+            target = getattr(self.args, "Target_{}".format(i+1))
+            positive_control = getattr(self.args, "PositiveControl_{}".format(i+1))
+
+            if target and not positive_control:
+                msg = "There is a Target defined without a Positive Control.  "
+                print("Target_{0} is defined without a PositiveControl_{0}".format(i+1))
+            elif not target and positive_control:
+                msg += "There is a Positive Control defined without a Target"
+                print("PositiveControl_{0} is defined without a Target_{0}".format(i + 1))
+        if msg:
+            return msg
+
     def generic_pcr(self):
         """
         Perform error checking on the template for the Generic PCR program.
@@ -205,7 +228,6 @@ class TemplateErrorChecking:
             sample_source_slot = self.sample_dictionary[sample_key][0]
             sample_source_well = self.sample_dictionary[sample_key][1]
             sample_dest_slot = self.sample_dictionary[sample_key][4]
-            # sample_dest_labware = self.labware_slot_definitions[int(sample_dest_slot)]
             sample_dest_well = self.sample_dictionary[sample_key][5]
             source_test.append("{}+{}".format(sample_source_slot, sample_source_well))
 
@@ -270,7 +292,7 @@ class TemplateErrorChecking:
             "vwrmicrocentrifugetube1.5ml_24_tuberack_1500ul", "stacked_96_well", "8_well_strip_tubes_200ul",
             "opentrons_96_tiprack_10ul", "opentrons_96_tiprack_20ul", "opentrons_96_tiprack_300ul",
             "vwrscrewcapcentrifugetube5ml_15_tuberack_5000ul", "opentrons_24_tuberack_nest_0.5ml_screwcap",
-            "opentrons_24_tuberack_generic_2ml_screwcap"]
+            "opentrons_24_tuberack_generic_2ml_screwcap", "opentrons_96_filtertiprack_20ul"]
 
         return labware_list
 
@@ -303,7 +325,6 @@ class TemplateErrorChecking:
             elif "96" in labware:
                 well_labels_dict[labware] = w96
             elif "_15_tuberack" in labware:
-
                 well_labels_dict[labware] = w15
             elif len(well_labels_dict) == 0:
                 msg = "Well label definitions failed.  Incorrect labware passed.  Template file is bad"
@@ -314,14 +335,14 @@ class TemplateErrorChecking:
 
     def pipette_information(self):
         self.pipette_info_dict = {"p10_multi": "opentrons_96_tiprack_10ul", "p10_single": "opentrons_96_tiprack_10ul",
-                                  "p20_single_gen2": "opentrons_96_tiprack_20ul",
+                                  "p20_single_gen2": ["opentrons_96_tiprack_20ul", "opentrons_96_filtertiprack_20ul"],
                                   "p300_single_gen2": "opentrons_96_tiprack_300ul"}
 
     def pipette_tipbox_error_check(self, pipette_tip_slots, error_state, pipette, msg):
         pipette_labware = self.pipette_info_dict[pipette]
         err_msg = ""
         for slot in pipette_tip_slots:
-            if self.slot_dict[slot] != pipette_labware:
+            if self.slot_dict[slot] not in pipette_labware:
                 err_msg = "ERROR:  {} in slot {} is not correct.".format(msg, slot)
                 error_state = True
         return error_state, err_msg
