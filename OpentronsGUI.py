@@ -9,8 +9,9 @@ Chapel Hill, NC  27599-7295
 
 Copyright 2021
 """
-
+import datetime
 import io
+import platform
 import shutil
 import sys
 import os
@@ -24,7 +25,7 @@ from paramiko import SSHClient, AutoAddPolicy
 from contextlib import redirect_stdout, suppress
 from scp import SCPClient
 
-__version__ = "0.6.0"
+__version__ = "0.6.3"
 # pyside2-uic MainWindow.ui -o UI_MainWindow.py
 
 
@@ -186,7 +187,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # Redirect stdout and stderr here so they can be displayed in the GUI
         f = io.StringIO()
         with redirect_stdout(f):
-            print("HERE")
             # Initialize template error checking
             template_error_check = TemplateErrorChecking(self.path_to_tsv)
             slot_error = template_error_check.slot_error_check()
@@ -222,6 +222,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         elif self.selected_program == "Illumina_Dual_Indexing":
             self.path_to_program = "C:{0}Opentrons_Programs{0}Illumina_Dual_Indexing.py".format(os.sep)
 
+        elif self.selected_program == "ddPCR":
+            self.path_to_program = "C:{0}Opentrons_Programs{0}ddPCR.py".format(os.sep)
+
         self.run_simulation_output.insertPlainText('Begin Program Simulation.\n'.format(f.getvalue()))
         try:
             self.simulate_program()
@@ -254,6 +257,24 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         labware_location = "{}{}custom_labware".format(os.path.dirname(self.path_to_program), os.sep)
         run_log, __bundle__ = simulate(protocol_file, custom_labware_paths=[labware_location], propagate_logs=True)
+
+        # Write the simulation steps to a file
+        if platform.system() == "Windows":
+            run_date = datetime.datetime.today().strftime("%a %b %d %H:%M %Y")
+            outfile = open("C:{0}Users{0}{1}{0}Documents{0}Simulation.txt"
+                           .format(os.sep, os.getlogin()), 'w', encoding="UTF-16")
+            i = 1
+            t = format_runlog(run_log).split("\n")
+            outstring = "Opentrons OT-2 Steps.\nDate:  {}\nProgram File: ddPCR.py\nTSV File:  {}\n\nStep\tCommand\n"\
+                .format(run_date, self.path_to_program, self.path_to_tsv)
+
+            for l in t:
+                outstring += "{}\t{}\n".format(i, l)
+                i += 1
+            outfile.write(outstring)
+            outfile.close()
+
+        # Write the simulation steps to the GUI
         self.run_simulation_output.insertPlainText(format_runlog(run_log))
 
         protocol_file.close()

@@ -341,8 +341,9 @@ class TemplateErrorChecking:
     def pipette_tipbox_error_check(self, pipette_tip_slots, error_state, pipette, msg):
         pipette_labware = self.pipette_info_dict[pipette]
         err_msg = ""
+
         for slot in pipette_tip_slots:
-            if self.slot_dict[slot] not in pipette_labware:
+            if slot and self.slot_dict[slot] not in pipette_labware:
                 err_msg = "ERROR:  {} in slot {} is not correct.".format(msg, slot)
                 error_state = True
         return error_state, err_msg
