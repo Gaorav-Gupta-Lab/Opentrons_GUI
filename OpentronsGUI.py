@@ -25,6 +25,7 @@ from paramiko import SSHClient, AutoAddPolicy
 from contextlib import redirect_stdout, suppress
 from scp import SCPClient
 
+
 __version__ = "0.6.3"
 # pyside2-uic MainWindow.ui -o UI_MainWindow.py
 
