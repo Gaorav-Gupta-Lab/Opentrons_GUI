@@ -11,7 +11,6 @@ Copyright 2021
 """
 import datetime
 import io
-import platform
 import shutil
 import sys
 import os
@@ -26,7 +25,7 @@ from contextlib import redirect_stdout, suppress
 from scp import SCPClient
 
 
-__version__ = "0.6.3"
+__version__ = "0.6.7"
 # pyside2-uic MainWindow.ui -o UI_MainWindow.py
 
 
@@ -44,7 +43,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.server_path = "/var/lib/jupyter/notebooks/"
         self.server_tsv_file = "ProcedureFile.tsv"
         self.temp_tsv_path = "C:{0}Users{0}{1}{0}Documents{0}TempTSV.tsv".format(os.sep, os.getlogin())
-        self.ssh_client = self.connect_to_ot2()
+        self.ssh_client = None
         self.tsv_file_select_btn.pressed.connect(self.select_file)
         self.closeGUI_btn.pressed.connect(self.exit_gui)
         self.simulate_run_btn.pressed.connect(self.simulate_run)
@@ -54,6 +53,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.run_ot2.pressed.connect(self.run_program)
 
     def run_program(self):
+        self.warning_report("This Feature is Not Yet Implemented")
         return
         program_name = os.path.basename(self.path_to_program)
         cmd = "opentrons_execute {0}{1} -L {0}custom_labware".format(self.server_path, program_name)
@@ -73,6 +73,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             print("response line:  ", line)
 
     def cancel_run(self):
+        self.warning_report("This Feature is Not Yet Implemented")
         return
         stdin, stdout, stderr = self.ssh_client.send("\x03")
         stdout.channel.recv_exit_status()
@@ -96,8 +97,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             QtWidgets.QFileDialog.getOpenFileName(self, self.tr("File Select"),
                                                   self.tr("C:{0}Users{0}{1}{0}Documents{0}".
                                                           format(os.sep, os.getlogin())))
-
-        shutil.copyfile(self.path_to_tsv, self.temp_tsv_path)
+        if self.path_to_tsv:
+            shutil.copyfile(self.path_to_tsv, self.temp_tsv_path)
+        else:
+            self.warning_report("TSV File Not Selected.")
 
     def connect_to_ot2(self):
         """
@@ -110,8 +113,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         except socket.gaierror:
             self.error_report("Unable to connect to Opentrons OT-2 {}\n Is robot on and connected to computer?"
                               .format(robot_name))
-            self.critical_error = True
-            raise SystemExit(1)
+            return
 
         ssh_client = SSHClient()
         ssh_client.load_system_host_keys()
@@ -131,6 +133,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         If everything checks out then transfer the files to the robot.
         :return:
         """
+
+        # Establish a connection to the robot.
+        self.ssh_client = self.connect_to_ot2()
+
+        # If communications with the OT-2 cannot be established then let the user know so they can decide.
+        if not self.ssh_client:
+            self.warning_report("Communications with OT-2 not established.  If this was expected then you can safely "
+                                "ignore this message")
+            return
 
         # If we have a critical error then don't do anything else.
         if self.critical_error:
@@ -187,8 +198,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         # Redirect stdout and stderr here so they can be displayed in the GUI
         f = io.StringIO()
+
         with redirect_stdout(f):
             # Initialize template error checking
+
             template_error_check = TemplateErrorChecking(self.path_to_tsv)
             slot_error = template_error_check.slot_error_check()
             pipette_error = template_error_check.pipette_error_check()
@@ -227,11 +240,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.path_to_program = "C:{0}Opentrons_Programs{0}ddPCR.py".format(os.sep)
 
         self.run_simulation_output.insertPlainText('Begin Program Simulation.\n'.format(f.getvalue()))
-        try:
-            self.simulate_program()
-        except:
-            self.error_report("Simulation of {} Failed".format(os.path.basename(self.path_to_program)))
-            return
+        self.simulate_program()
 
         self.run_simulation_output.insertPlainText("\n")
         self.success_report("Simulations were successful.", "Simulation Module")
@@ -254,37 +263,42 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                                       self.tr("C:{0}Users{0}{1}{0}Documents{0}"
                                                               .format(os.sep, os.getlogin())))
 
+        self.info_report('If you do not get a "Success" notice then the simulation failed.\nSee the terminal window '
+                         'for the reason')
+
         protocol_file = open(self.path_to_program)
-
         labware_location = "{}{}custom_labware".format(os.path.dirname(self.path_to_program), os.sep)
-        run_log, __bundle__ = simulate(protocol_file, custom_labware_paths=[labware_location], propagate_logs=True)
+        run_log, __bundle__ = simulate(protocol_file, custom_labware_paths=[labware_location], propagate_logs=False)
 
-        # Write the simulation steps to a file
-        if platform.system() == "Windows":
-            run_date = datetime.datetime.today().strftime("%a %b %d %H:%M %Y")
-            outfile = open("C:{0}Users{0}{1}{0}Documents{0}Simulation.txt"
-                           .format(os.sep, os.getlogin()), 'w', encoding="UTF-16")
-            i = 1
-            t = format_runlog(run_log).split("\n")
-            outstring = "Opentrons OT-2 Steps.\nDate:  {}\nProgram File: ddPCR.py\nTSV File:  {}\n\nStep\tCommand\n"\
-                .format(run_date, self.path_to_program, self.path_to_tsv)
+        # Write the simulation steps to a file if not on robot.
+        # if platform.system() == "Windows":
+        simulation_date = datetime.datetime.today().strftime("%a %b %d %H:%M %Y")
+        outfile = open("C:{0}Users{0}{1}{0}Documents{0}Simulation.txt".format(os.sep, os.getlogin()),
+                       'w', encoding="UTF-16")
+        step_number = 1
+        t = format_runlog(run_log).split("\n")
+        outstring = "Opentrons OT-2 Steps.\nDate:  {}\nProgram File: {}\nTSV File:  {}\n\nStep\tCommand\n"\
+                    .format(simulation_date, self.selected_program, self.path_to_tsv)
 
-            for l in t:
-                outstring += "{}\t{}\n".format(i, l)
-                i += 1
-            outfile.write(outstring)
-            outfile.close()
+        for line in t:
+            outstring += "{}\t{}\n".format(step_number, line)
+            step_number += 1
+        outfile.write(outstring)
+        outfile.close()
 
         # Write the simulation steps to the GUI
         self.run_simulation_output.insertPlainText(format_runlog(run_log))
 
         protocol_file.close()
 
+    def info_report(self, message):
+        QtWidgets.QMessageBox.information(self, "Take Heed", message)
+
     def error_report(self, message):
         QtWidgets.QMessageBox.critical(self, "Well, that didn't go so well.", message)
 
     def warning_report(self, message):
-        QtWidgets.QMessageBox.warning(self, "You Forgot Something", message)
+        QtWidgets.QMessageBox.warning(self, "You Sure You Want To Continue?", message)
 
     def success_report(self, message, source):
         QtWidgets.QMessageBox.information(self, source, message)
@@ -293,8 +307,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 def center_window(central_widget):
     screen_geometry = QtGui.QGuiApplication.primaryScreen().availableGeometry()
     central_widget.setWindowTitle("Opentrons Python Interface")
-    w_scale = 0.52
-    h_scale = 0.8
+    w_scale = 0.55
+    h_scale = 0.85
     if screen_geometry.width() > 2000:
         w_scale = 0.27
     elif screen_geometry.width() < 1500:
