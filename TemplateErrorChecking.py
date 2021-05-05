@@ -14,7 +14,9 @@ from collections import defaultdict
 from types import SimpleNamespace
 import csv
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
+
+import Tool_Box
 
 
 class TemplateErrorChecking:
@@ -180,9 +182,10 @@ class TemplateErrorChecking:
             return msg
         
         # Check Supermix volume.
-        well_count = target_count*4
+        well_count = target_count*2
         for key, value in self.sample_dictionary.items():
-            well_count += int(value[5])*target_count
+            sample_targets = len(value[4].split(","))
+            well_count += int(value[5])*sample_targets
         pcr_vol = float(self.args.PCR_Volume)
 
         pcr_mix_concentration = int(self.args.PCR_MixConcentration.split("x")[0])
@@ -192,7 +195,7 @@ class TemplateErrorChecking:
             msg = "Program requires {} uL of Supermix.  You have {} uL".format(vol_needed, self.args.PCR_MixResVolume)
             return msg
 
-        water_used, p20_tips_used, p300_tips_used = self.sample_processing(target_count)
+        water_used, p20_tips_used, p300_tips_used = self.ddpcr_sample_processing(target_count)
 
         # Check Water Volume
         if int(self.args.WaterResVol) < water_used:
@@ -200,22 +203,9 @@ class TemplateErrorChecking:
             return msg
 
         # Check if there are enough tips
-        tip_box_layout = self.plate_layout()
-        # left_tip_boxes = getattr(self.args, "LeftPipetteTipRackSlot", 0).split(",")
-        # right_tip_boxes = getattr(self.args, "RightPipetteTipRackSlot", 0).split(",")
-        left_available = \
-            (len(self.left_tip_boxes)*96)-tip_box_layout.index(self.args.LeftPipetteFirstTip)
-        right_available = \
-            (len(self.right_tip_boxes)*96)-tip_box_layout.index(self.args.RightPipetteFirstTip)
-
-        if self.args.LeftPipette == "p20_single_gen2":
-            if left_available < p20_tips_used:
-                msg = "Program requires {} p20 tips.  {} tips provided.".format(p20_tips_used, left_available)
-                return msg
-        if self.args.RightPipette == "p300_single_gen2":
-            if right_available < p300_tips_used:
-                msg = "Program requires {} p300 tips.  {} tips provided".format(p300_tips_used, right_available)
-                return msg
+        msg = self.available_tips(p20_tips_used, p300_tips_used)
+        if msg:
+            return msg
 
     def generic_pcr(self):
         """
@@ -230,9 +220,12 @@ class TemplateErrorChecking:
         if msg:
             return msg
 
-        water_control_slot = self.args.WaterControl.split(",")[0]
-        water_control_labware = self.slot_dict[water_control_slot]
-        water_control_well = self.args.WaterControl.split(",")[1]
+        try:
+            water_control_slot = self.args.WaterControl.split(",")[0]
+            water_control_labware = self.slot_dict[water_control_slot]
+            water_control_well = self.args.WaterControl.split(",")[1]
+        except IndexError:
+            return "--WaterControl value not formatted correctly in TSV file"
 
         water_control_labware_pass = False
         reagent_labware_pass = False
@@ -284,6 +277,42 @@ class TemplateErrorChecking:
                 print("ERROR:  {}".format(msg))
                 return msg
 
+        wells_used = len(dest_test)*0.5
+        water_required, left_tips_used, right_tips_used = self.pcr_sample_processing(wells_used)
+
+        # Check Water Volume
+        if float(self.args.WaterResVol) <= water_required:
+            msg = "Program requires minimum of {} uL water.  You have {} uL."\
+                .format(int(water_required), self.args.WaterResVol)
+            return msg
+
+        # Check PCR reagent volume
+        pcr_mix_required = float(self.args.PCR_Volume)*0.5*wells_used
+        if pcr_mix_required > float(self.args.PCR_MixResVolume):
+            msg = "Program requires {} uL of PCR mix.  You have {} uL"\
+                .format(pcr_mix_required, self.args.PCR_MixResVolume)
+            return msg
+
+        # Check if there are enough tips
+        msg = self.available_tips(left_tips_used, right_tips_used)
+        if msg:
+            return msg
+
+    def available_tips(self, left_tips_used, right_tips_used):
+        tip_box_layout = self.plate_layout()
+        left_available = \
+            (len(self.left_tip_boxes)*96)-tip_box_layout.index(self.args.LeftPipetteFirstTip)
+        right_available = \
+            (len(self.right_tip_boxes)*96)-tip_box_layout.index(self.args.RightPipetteFirstTip)
+        if self.args.LeftPipette == "p20_single_gen2":
+            if left_available < left_tips_used:
+                msg = "Program requires {} p20 tips.  {} tips provided.".format(int(left_tips_used), left_available)
+                return msg
+        if self.args.RightPipette == "p300_single_gen2":
+            if right_available < right_tips_used:
+                msg = "Program requires {} p300 tips.  {} tips provided".format(int(right_tips_used), right_available)
+                return msg
+
     def illumina_dual_indexing(self):
 
         reagent_slot = self.args.ReagentSlot
@@ -313,7 +342,6 @@ class TemplateErrorChecking:
             sample_source_slot = self.sample_dictionary[sample_key][0]
             sample_source_well = self.sample_dictionary[sample_key][1]
             sample_dest_slot = self.sample_dictionary[sample_key][4]
-            # sample_dest_labware = self.labware_slot_definitions[int(sample_dest_slot)]
             sample_dest_well = self.sample_dictionary[sample_key][5]
             source_test.append("{}+{}".format(sample_source_slot, sample_source_well))
 
@@ -325,6 +353,27 @@ class TemplateErrorChecking:
                 msg = "More than one sample share the same source and/or destinations"
                 print("ERROR:  {}".format(msg))
                 return msg
+
+        wells_used = len(dest_test)
+        water_required, left_tips_used, right_tips_used = self.pcr_sample_processing(wells_used, indexing_rxn=True)
+
+        # Check Water Volume
+        if float(self.args.WaterResVol) < water_required:
+            msg = "Program requires minimum of {} uL water.  You have {} uL."\
+                .format(water_required, self.args.WaterResVol)
+            return msg
+
+        # Check PCR reagent volume
+        pcr_mix_required = float(self.args.PCR_Volume)*0.5*wells_used
+        if pcr_mix_required > float(self.args.PCR_MixResVolume):
+            msg = "Program requires {} uL of PCR mix.  You have {} uL"\
+                .format(pcr_mix_required, self.args.PCR_MixResVolume)
+            return msg
+
+        # Check if there are enough tips
+        msg = self.available_tips(left_tips_used, right_tips_used)
+        if msg:
+            return msg
 
     @property
     def labware_slot_definitions(self):
@@ -390,7 +439,8 @@ class TemplateErrorChecking:
             print("ERROR:  {} definition not correct".format(pipette_str))
         return error_state
 
-    def plate_layout(self):
+    @staticmethod
+    def plate_layout():
         rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
         plate_layout_by_column = []
         for i in range(12):
@@ -398,7 +448,53 @@ class TemplateErrorChecking:
                 plate_layout_by_column.append("{}{}".format(row, i + 1))
         return plate_layout_by_column
 
-    def sample_processing(self, target_count):
+    def pcr_sample_processing(self, used_wells, indexing_rxn=False):
+        sample_parameters = self.sample_dictionary
+        pcr_mix_required = float(self.args.PCR_Volume) * 0.5
+        indexing_tips = 0
+        if indexing_rxn:
+            indexing_tips = used_wells*2
+
+        left_tips_used = 4
+        right_tips_used = 4
+        if self.args.LeftPipette == "p20_single_gen2" and pcr_mix_required <= 20:
+            left_tips_used = used_wells+indexing_tips
+        elif self.args.LeftPipette == "p300_single_gen2" and pcr_mix_required > 20:
+            left_tips_used = used_wells
+
+        if self.args.RightPipette == "p20_single_gen2" and pcr_mix_required <= 20:
+            right_tips_used = used_wells+indexing_tips
+        elif self.args.RightPipette == "p300_single_gen2" and pcr_mix_required > 20:
+            right_tips_used = used_wells
+
+        template_required = float(self.args.DNA_in_Reaction)
+        water_required = 0
+
+        for sample_key in sample_parameters:
+            sample_concentration = float(sample_parameters[sample_key][3])
+            sample_vol = template_required/sample_concentration
+            water_vol = (float(self.args.PCR_Volume)*0.5)-sample_vol
+
+            water_required += water_vol
+            left_tips_used, right_tips_used = self.tip_counter(left_tips_used, right_tips_used, water_vol)
+            left_tips_used, right_tips_used = self.tip_counter(left_tips_used, right_tips_used, sample_vol)
+
+        return water_required, left_tips_used, right_tips_used
+
+    def tip_counter(self, left_tips_used, right_tips_used, volume):
+        if self.args.LeftPipette == "p20_single_gen2" and volume <= 20:
+            left_tips_used += 1
+        elif self.args.LeftPipette == "p300_single_gen2" and volume > 20:
+            left_tips_used += 1
+
+        if self.args.RightPipette == "p20_single_gen2" and volume <= 20:
+            right_tips_used += 1
+        elif self.args.RightPipette == "p300_single_gen2" and volume > 20:
+            right_tips_used += 1
+
+        return left_tips_used, right_tips_used
+
+    def ddpcr_sample_processing(self, target_count):
         """
 
         :rtype: int
@@ -437,21 +533,16 @@ class TemplateErrorChecking:
                     undiluted_sample_vol = sample_vol * (i + 1)
                     diluent_vol = diluent_vol * (i + 1)
                     volume_ratio = (diluted_sample_vol * len(sample_wells)) / (undiluted_sample_vol + diluent_vol)
+
                     if volume_ratio < 0.66:
-                        if undiluted_sample_vol <= 20:
-                            p20_tip_count += 1
-                        elif 20 < undiluted_sample_vol:
-                            p300_tip_count += 1
-
-                        if diluent_vol <= 20:
-                            p20_tip_count += 1
-                        elif diluent_vol > 20:
-                            p300_tip_count += 1
-
+                        p20_tip_count, p300_tip_count = self.tip_counter(p20_tip_count, p300_tip_count, undiluted_sample_vol)
+                        p20_tip_count, p300_tip_count = self.tip_counter(p20_tip_count, p300_tip_count, diluent_vol)
                         break
+
             total_water += diluent_vol
 
-        total_water, p20_tip_count, p300_tip_count = self.empty_well_vol(plate_layout_by_column, dest_well_count, p20_tip_count, p300_tip_count, total_water)
+        total_water, p20_tip_count, p300_tip_count = self.empty_well_vol(plate_layout_by_column, dest_well_count,
+                                                                         p20_tip_count, p300_tip_count, total_water)
 
         # ToDo: This should be calculated based on the volumes.
         p20_tip_count += dest_well_count*2
@@ -470,19 +561,13 @@ class TemplateErrorChecking:
         column = int(last_used_well.split(row)[1])
         wells_remaining = 12 - column
         total_water += wells_remaining*float(self.args.PCR_Volume)
-
-        if float(self.args.PCR_Volume) <= 20:
-            p20_tip_count += 1
-        elif float(self.args.PCR_Volume) > 20:
-            p300_tip_count += 1
+        p20_tip_count, p300_tip_count = self.tip_counter(p20_tip_count, p300_tip_count, float(self.args.PCR_Volume))
 
         return total_water, p20_tip_count, p300_tip_count
 
     def max_template(self):
 
-        return round(float(self.args.PCR_Volume) - (
-                        (float(self.args.PCR_Volume) / int(self.args.PCR_MixConcentration.split("x")[0])) + float(
-                    self.args.TargetVolume)), 2)
+        return float(self.args.PCR_Volume)*0.5
 
     def calculate_volumes(self, sample_concentration):
         """
@@ -510,7 +595,7 @@ class TemplateErrorChecking:
         # If template concentration per uL is less than desired template in reaction then no dilution is necessary.
         if sample_concentration <= target_concentration:
             sample_vol = template_in_reaction / sample_concentration
-            return 0, 0, sample_vol, round(self.max_template_vol - sample_vol, 2), self.max_template_vol
+            return sample_vol, 0, round(self.max_template_vol - sample_vol, 2), self.max_template_vol
 
         # This will test a series of dilutions up to a 1:200.
         for i in range(50):
