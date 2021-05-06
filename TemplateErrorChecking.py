@@ -14,7 +14,7 @@ from collections import defaultdict
 from types import SimpleNamespace
 import csv
 
-__version__ = "0.7.0"
+__version__ = "0.7.1"
 
 import Tool_Box
 
@@ -227,12 +227,10 @@ class TemplateErrorChecking:
         except IndexError:
             return "--WaterControl value not formatted correctly in TSV file"
 
-        water_control_labware_pass = False
         reagent_labware_pass = False
 
         for key in self.well_label_dict:
-            if key in water_control_labware:
-                water_control_labware_pass = True
+            if key == water_control_labware:
                 label_list = self.well_label_dict[key]
                 if water_control_well not in label_list:
                     msg = "The well defined for the Water Control Sample is not possible for {}"\
@@ -253,8 +251,6 @@ class TemplateErrorChecking:
                     print("ERROR: {}".format(msg))
                     return msg
 
-        if not water_control_labware_pass:
-            print("The Water Control labware is not correctly defined.")
         if not reagent_labware_pass:
             print("ERROR: The Reagent labware is not correctly defined.")
 
@@ -265,20 +261,25 @@ class TemplateErrorChecking:
             sample_source_slot = self.sample_dictionary[sample_key][0]
             sample_source_well = self.sample_dictionary[sample_key][1]
             sample_dest_slot = self.sample_dictionary[sample_key][4]
-            sample_dest_well = self.sample_dictionary[sample_key][5]
+            sample_dest_well = self.sample_dictionary[sample_key][5].split(",")
             source_test.append("{}+{}".format(sample_source_slot, sample_source_well))
 
             # If there are replicates a single sample can have more than one destination well.
             for well in sample_dest_well:
                 dest_test.append("{}+{}".format(sample_dest_slot, well))
+
         for source in source_test:
             if source in dest_test:
                 msg = "More than one sample share the same source and/or destinations"
                 print("ERROR:  {}".format(msg))
                 return msg
 
-        wells_used = len(dest_test)*0.5
-        water_required, left_tips_used, right_tips_used = self.pcr_sample_processing(wells_used)
+        wells_used = len(dest_test)+1
+        water_required, left_tips_used, right_tips_used, msg = self.pcr_sample_processing(wells_used)
+
+        # Sample too dilute error
+        if msg:
+            return msg
 
         # Check Water Volume
         if float(self.args.WaterResVol) <= water_required:
@@ -469,17 +470,22 @@ class TemplateErrorChecking:
 
         template_required = float(self.args.DNA_in_Reaction)
         water_required = 0
-
+        msg = ""
         for sample_key in sample_parameters:
             sample_concentration = float(sample_parameters[sample_key][3])
-            sample_vol = template_required/sample_concentration
+            sample_vol = round(template_required/sample_concentration, 2)
             water_vol = (float(self.args.PCR_Volume)*0.5)-sample_vol
-
+            if sample_vol > float(self.args.PCR_Volume)*0.5:
+                print(template_required, sample_vol, sample_concentration)
+                msg = "Sample {} is too dilute.  Minimum required concentration is {} ng/uL."\
+                    .format(sample_parameters[sample_key][2],
+                            round(template_required/(float(self.args.PCR_Volume)*0.5), 2))
+                return 0, 0, 0, msg
             water_required += water_vol
             left_tips_used, right_tips_used = self.tip_counter(left_tips_used, right_tips_used, water_vol)
             left_tips_used, right_tips_used = self.tip_counter(left_tips_used, right_tips_used, sample_vol)
 
-        return water_required, left_tips_used, right_tips_used
+        return water_required, left_tips_used, int(right_tips_used), msg
 
     def tip_counter(self, left_tips_used, right_tips_used, volume):
         if self.args.LeftPipette == "p20_single_gen2" and volume <= 20:
