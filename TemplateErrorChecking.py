@@ -14,7 +14,7 @@ from collections import defaultdict
 from types import SimpleNamespace
 import csv
 
-__version__ = "0.7.1"
+__version__ = "0.7.5"
 
 import Tool_Box
 
@@ -305,13 +305,17 @@ class TemplateErrorChecking:
             (len(self.left_tip_boxes)*96)-tip_box_layout.index(self.args.LeftPipetteFirstTip)
         right_available = \
             (len(self.right_tip_boxes)*96)-tip_box_layout.index(self.args.RightPipetteFirstTip)
+
         if self.args.LeftPipette == "p20_single_gen2":
             if left_available < left_tips_used:
-                msg = "Program requires {} p20 tips.  {} tips provided.".format(int(left_tips_used), left_available)
+                msg = "Program requires {}, {} tips.  {} tips provided."\
+                    .format(int(left_tips_used), self.args.LeftPipette, left_available)
                 return msg
+
         if self.args.RightPipette == "p300_single_gen2":
             if right_available < right_tips_used:
-                msg = "Program requires {} p300 tips.  {} tips provided".format(int(right_tips_used), right_available)
+                msg = "Program requires {}, {} tips.  {} tips provided"\
+                    .format(int(right_tips_used), self.args.RightPipette, right_available)
                 return msg
 
     def illumina_dual_indexing(self):
@@ -339,12 +343,21 @@ class TemplateErrorChecking:
         # Process Sample data;
         source_test = []
         dest_test = []
+        index_dict = {}
         for sample_key in self.sample_dictionary:
             sample_source_slot = self.sample_dictionary[sample_key][0]
             sample_source_well = self.sample_dictionary[sample_key][1]
             sample_dest_slot = self.sample_dictionary[sample_key][4]
             sample_dest_well = self.sample_dictionary[sample_key][5]
             source_test.append("{}+{}".format(sample_source_slot, sample_source_well))
+            sample_index = self.sample_dictionary[sample_key][2]
+            sample_name = self.sample_dictionary[sample_key][3]
+            if sample_index in index_dict:
+                msg = "Sample index {} used for samples {} and {}"\
+                    .format(sample_index, index_dict[sample_index], sample_name)
+                return msg
+            else:
+                index_dict[sample_index] = sample_name
 
             # If there are replicates a single sample can have more than one destination well.
             for well in sample_dest_well:
@@ -356,7 +369,11 @@ class TemplateErrorChecking:
                 return msg
 
         wells_used = len(dest_test)
-        water_required, left_tips_used, right_tips_used = self.pcr_sample_processing(wells_used, indexing_rxn=True)
+        water_required, left_tips_used, right_tips_used, msg = self.pcr_sample_processing(wells_used, indexing_rxn=True)
+
+        # This is our warning of samples being too dilute.
+        if msg:
+            return msg
 
         # Check Water Volume
         if float(self.args.WaterResVol) < water_required:
@@ -472,7 +489,10 @@ class TemplateErrorChecking:
         water_required = 0
         msg = ""
         for sample_key in sample_parameters:
-            sample_concentration = float(sample_parameters[sample_key][3])
+            if indexing_rxn:
+                sample_concentration = float(sample_parameters[sample_key][4])
+            else:
+                sample_concentration = float(sample_parameters[sample_key][3])
             sample_vol = round(template_required/sample_concentration, 2)
             water_vol = (float(self.args.PCR_Volume)*0.5)-sample_vol
             if sample_vol > float(self.args.PCR_Volume)*0.5:
@@ -485,7 +505,7 @@ class TemplateErrorChecking:
             left_tips_used, right_tips_used = self.tip_counter(left_tips_used, right_tips_used, water_vol)
             left_tips_used, right_tips_used = self.tip_counter(left_tips_used, right_tips_used, sample_vol)
 
-        return water_required, left_tips_used, int(right_tips_used), msg
+        return round(water_required, 1), left_tips_used, int(right_tips_used), msg
 
     def tip_counter(self, left_tips_used, right_tips_used, volume):
         if self.args.LeftPipette == "p20_single_gen2" and volume <= 20:
