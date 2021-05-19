@@ -160,7 +160,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 preserve_times=True)
 
         # Program file transfer
-        scp.put(files=self.path_to_program, remote_path=self.server_path, preserve_times=True)
+        # scp.put(files=self.path_to_program, remote_path=self.server_path, preserve_times=True)
 
         # Confirm files have transferred.
         cmd = "ls {}".format(self.server_path)
