@@ -13,10 +13,9 @@ from distutils import log
 from collections import defaultdict
 from types import SimpleNamespace
 import csv
+import Tool_Box
 
 __version__ = "0.7.5"
-
-import Tool_Box
 
 
 class TemplateErrorChecking:
@@ -323,7 +322,6 @@ class TemplateErrorChecking:
         reagent_slot = self.args.ReagentSlot
         reagent_labware = self.slot_dict[reagent_slot]
         msg = self.reagent_slot_error_check(reagent_labware)
-
         if msg:
             return msg
 
