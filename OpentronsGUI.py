@@ -25,7 +25,7 @@ from contextlib import redirect_stdout, suppress
 from scp import SCPClient
 
 
-__version__ = "0.7.0"
+__version__ = "0.7.1"
 # pyside2-uic MainWindow.ui -o UI_MainWindow.py
 
 
@@ -175,9 +175,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if self.server_tsv_file not in transferred_files:
             self.error_report("TSV File Transfer Failed")
             self.critical_error = True
-        elif program_name not in transferred_files:
-            self.error_report("Program File {} Transfer Failed".format(program_name))
-            self.critical_error = True
+            # elif program_name not in transferred_files:
+            # self.error_report("Program File {} Transfer Failed".format(program_name))
+            # self.critical_error = True
         else:
             self.success_report("All Files Transferred Successfully", "File Transfer")
 
@@ -203,18 +203,21 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             # Initialize template error checking
 
             template_error_check = TemplateErrorChecking(self.path_to_tsv)
-            slot_error = template_error_check.slot_error_check()
-            pipette_error = template_error_check.pipette_error_check()
-            tip_box_error = template_error_check.tip_box_error_check()
 
+            slot_error = template_error_check.slot_error_check()
             if slot_error:
-                self.error_report("There is an error in the TSV Slot Definitions")
+                self.error_report(slot_error)
                 return
+
+            pipette_error = template_error_check.pipette_error_check()
             if pipette_error:
-                self.error_report("There is an error in the pipette setup")
+                self.error_report(pipette_error)
                 return
+
+            tip_box_error = template_error_check.tip_box_error_check()
             if tip_box_error:
-                self.error_report("There is an error with the pipette box definitions")
+                self.error_report(tip_box_error)
+                return
 
             if self.selected_program == "Generic PCR":
                 error_msg = template_error_check.generic_pcr()
