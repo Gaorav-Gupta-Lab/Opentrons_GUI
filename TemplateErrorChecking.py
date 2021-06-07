@@ -147,7 +147,6 @@ class TemplateErrorChecking:
             print("ERROR: {}".format(msg))
         else:
             for pipette in self.pipette_info_dict:
-                print(labware, self.pipette_info_dict[pipette])
                 if labware in self.pipette_info_dict[pipette]:
                     msg = "{} source slot contains a pipette tip box".format(type_check)
                     print("ERROR: {}".format(msg))
@@ -239,7 +238,8 @@ class TemplateErrorChecking:
             water_control_well = self.args.WaterControl.split(",")[1]
         except IndexError:
             return "--WaterControl value not formatted correctly in TSV file"
-        msg = self.slot_usage_error_check(water_control_slot, type_check="--WaterControl")
+
+        msg = self.slot_usage_error_check(water_control_labware, type_check="--WaterControl")
         if msg:
             return msg
 
@@ -275,17 +275,19 @@ class TemplateErrorChecking:
         dest_test = []
         for sample_key in self.sample_dictionary:
             sample_source_slot = self.sample_dictionary[sample_key][0]
+            sample_source_labware = self.slot_dict[sample_source_slot]
             sample_source_well = self.sample_dictionary[sample_key][1]
             sample_name = self.sample_dictionary[sample_key][2]
             sample_dest_slot = self.sample_dictionary[sample_key][4]
+            sample_dest_labware = self.slot_dict[sample_dest_slot]
             sample_dest_well = self.sample_dictionary[sample_key][5].split(",")
             source_test.append("{}+{}".format(sample_source_slot, sample_source_well))
 
             # Make sure the sample source and destination slots are not tip boxes.
-            msg = self.slot_usage_error_check(sample_source_slot, type_check=sample_name)
+            msg = self.slot_usage_error_check(sample_source_labware, type_check=sample_name)
             if msg:
                 return msg
-            msg = self.slot_usage_error_check(sample_dest_slot, type_check="{} DESTINATION".format(sample_name))
+            msg = self.slot_usage_error_check(sample_dest_labware, type_check="{} DESTINATION".format(sample_name))
             if msg:
                 return msg
 
