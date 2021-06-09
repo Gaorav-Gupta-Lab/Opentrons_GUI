@@ -15,6 +15,8 @@ import shutil
 import sys
 import os
 import socket
+
+import Tool_Box
 from TemplateErrorChecking import TemplateErrorChecking
 from opentrons.simulate import simulate, format_runlog
 from UI_MainWindow import Ui_MainWindow
@@ -199,12 +201,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # Redirect stdout and stderr here so they can be displayed in the GUI
         f = io.StringIO()
 
+        template_error_check = TemplateErrorChecking(self.path_to_tsv)
         with redirect_stdout(f):
             # Initialize template error checking
-
-            template_error_check = TemplateErrorChecking(self.path_to_tsv)
-
             slot_error = template_error_check.slot_error_check()
+
             if slot_error:
                 self.error_report(slot_error)
                 return

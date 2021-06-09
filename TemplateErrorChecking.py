@@ -15,7 +15,7 @@ from types import SimpleNamespace
 import csv
 import Tool_Box
 
-__version__ = "0.8.1"
+__version__ = "0.8.2"
 
 
 class TemplateErrorChecking:
@@ -148,7 +148,7 @@ class TemplateErrorChecking:
         else:
             for pipette in self.pipette_info_dict:
                 if labware in self.pipette_info_dict[pipette]:
-                    msg = "{} source slot contains a pipette tip box".format(type_check)
+                    msg = "{} slot contains a pipette tip box".format(type_check)
                     print("ERROR: {}".format(msg))
 
         return msg
@@ -207,7 +207,9 @@ class TemplateErrorChecking:
             msg = "Program requires {} uL of Supermix.  You have {} uL".format(vol_needed, self.args.PCR_MixResVolume)
             return msg
 
-        water_used, p20_tips_used, p300_tips_used = self.ddpcr_sample_processing(target_count)
+        water_used, p20_tips_used, p300_tips_used, msg = self.ddpcr_sample_processing(target_count)
+        if msg:
+            return msg
 
         # Check Water Volume
         if int(self.args.WaterResVol) < water_used:
@@ -564,14 +566,13 @@ class TemplateErrorChecking:
         """
 
         # Check if destination PCR plate and dilution labware are tip boxes
-        destination_slot = self.args.PCR_PlateSlot
-        dilution_slot = self.args.DilutionPlateSlot
-        msg = self.slot_usage_error_check(destination_slot, type_check="PCR Plate")
+        msg = self.slot_usage_error_check(self.slot_dict[self.args.PCR_PlateSlot], type_check="PCR Plate")
         if msg:
-            return msg
-        msg = self.slot_usage_error_check(dilution_slot, type_check="Dilution Labware")
+            return "", "", "", msg
+        msg = \
+            self.slot_usage_error_check(self.slot_dict[self.args.DilutionPlateSlot], type_check="Dilution Labware")
         if msg:
-            return msg
+            return "", "", "", msg
 
         sample_parameters = self.sample_dictionary
         rxn_vol = float(self.args.PCR_Volume)
@@ -603,9 +604,9 @@ class TemplateErrorChecking:
             sample_wells = []
 
             # Make sure the sample source slots are not tip boxes.
-            msg = self.slot_usage_error_check(sample_source_slot, type_check=sample_name)
+            msg = self.slot_usage_error_check(self.slot_dict[sample_source_slot], type_check=sample_name)
             if msg:
-                return msg
+                return "", "", "", msg
 
             for target in targets:
                 for i in range(replicates):
@@ -634,7 +635,7 @@ class TemplateErrorChecking:
         # ToDo: This should be calculated based on the volumes.
         p20_tip_count += dest_well_count*2
 
-        return total_water, p20_tip_count, p300_tip_count
+        return total_water, p20_tip_count, p300_tip_count, ""
 
     def empty_well_vol(self, plate_template, used_well_count, p20_tip_count, p300_tip_count, total_water):
         """
