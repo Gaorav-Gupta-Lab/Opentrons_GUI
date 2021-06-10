@@ -202,6 +202,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         f = io.StringIO()
 
         template_error_check = TemplateErrorChecking(self.path_to_tsv)
+        '''
+        # Debugging code block
+        slot_error = template_error_check.slot_error_check()
+        pipette_error = template_error_check.pipette_error_check()
+        tip_box_error = template_error_check.tip_box_error_check()
+        error_msg = template_error_check.illumina_dual_indexing()
+        Tool_Box.debug_messenger(error_msg)
+        '''
         with redirect_stdout(f):
             # Initialize template error checking
             slot_error = template_error_check.slot_error_check()
