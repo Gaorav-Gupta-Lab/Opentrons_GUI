@@ -61,14 +61,12 @@ class TemplateErrorChecking:
                     try:
                         line[i] = line[i].split("#")[0]  # Strip out end of line comments and white space.
                     except IndexError:
-                        print("There is a syntax error in the TSV file on line {}, column {} "
-                              .format(str(line_num), str(i)))
-
-                        raise SystemExit(1)
+                        continue
 
                     if i == 0 and "--" in line[0]:
                         key = line[0].strip('--')
                         options_dictionary[key] = line[1]
+
                     elif "--" not in line[0] and int(line[0]) < 12:
                         sample_key = line[0], line[1]
                         tmp_line.append(line[i])
