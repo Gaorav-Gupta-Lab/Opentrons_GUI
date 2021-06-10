@@ -57,7 +57,7 @@ class TemplateErrorChecking:
             if col_count > 0 and "#" not in line[0] and len(line[0].split("#")[0]) > 0:
                 # Skip any lines that are blank or comments.
 
-                for i in range(6):
+                for i in range(7):
                     try:
                         line[i] = line[i].split("#")[0]  # Strip out end of line comments and white space.
                     except IndexError:
@@ -384,15 +384,16 @@ class TemplateErrorChecking:
             sample_source_well = self.sample_dictionary[sample_key][1]
             sample_index = self.sample_dictionary[sample_key][2]
             sample_name = self.sample_dictionary[sample_key][3]
-            sample_dest_slot = self.sample_dictionary[sample_key][4]
-            sample_dest_well = self.sample_dictionary[sample_key][5]
+            sample_dest_slot = self.sample_dictionary[sample_key][5]
+            sample_dest_well = self.sample_dictionary[sample_key][6]
             source_test.append("{}+{}".format(sample_source_slot, sample_source_well))
-
             # Make sure the sample source and destination slots are not tip boxes.
-            msg = self.slot_usage_error_check(sample_source_slot, type_check=sample_name)
+            msg = self.slot_usage_error_check(self.slot_dict[sample_source_slot], type_check=sample_name)
             if msg:
                 return msg
-            msg = self.slot_usage_error_check(sample_dest_slot, type_check="{} DESTINATION".format(sample_name))
+
+            msg = self.slot_usage_error_check(self.slot_dict[sample_dest_slot], type_check="{} DESTINATION"
+                                              .format(sample_name))
             if msg:
                 return msg
 
@@ -403,15 +404,14 @@ class TemplateErrorChecking:
             else:
                 index_dict[sample_index] = sample_name
 
-            # If there are replicates a single sample can have more than one destination well.
-            for well in sample_dest_well:
-                dest_test.append("{}+{}".format(sample_dest_slot, well))
+
+        dest_test.append("{}+{}".format(sample_dest_slot, sample_dest_well))
         for source in source_test:
             if source in dest_test:
                 msg = "More than one sample share the same source and/or destinations"
                 print("ERROR:  {}".format(msg))
                 return msg
-
+        Tool_Box.debug_messenger(dest_test)
         wells_used = len(dest_test)
         water_required, left_tips_used, right_tips_used, msg = self.pcr_sample_processing(wells_used, indexing_rxn=True)
 
