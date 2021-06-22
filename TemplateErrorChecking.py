@@ -14,14 +14,15 @@ from collections import defaultdict
 from types import SimpleNamespace
 import csv
 import Tool_Box
+from Utilities import parse_sample_template, calculate_volumes
 
-__version__ = "0.8.2"
+__version__ = "0.9.0"
 
 
 class TemplateErrorChecking:
     def __init__(self, input_file):
         self.stdout = sys.stdout
-        self.sample_dictionary, self.args = self.parse_sample_file(input_file)
+        self.sample_dictionary, self.args = parse_sample_template(input_file)
         self.pipette_info_dict = {"p10_multi": "opentrons_96_tiprack_10ul",
                                   "p10_single": "opentrons_96_tiprack_10ul",
                                   "p20_single_gen2": ["opentrons_96_tiprack_20ul", "opentrons_96_filtertiprack_20ul"],
@@ -65,8 +66,10 @@ class TemplateErrorChecking:
 
                     if i == 0 and "--" in line[0]:
                         key = line[0].strip('--')
-                        options_dictionary[key] = line[1]
-
+                        key_value = line[1]
+                        if "Target_" in key or "PositiveControl_" in key:
+                            key_value = (line[1], line[2], line[3])
+                        options_dictionary[key] = key_value
                     elif "--" not in line[0] and int(line[0]) < 12:
                         sample_key = line[0], line[1]
                         tmp_line.append(line[i])
@@ -151,6 +154,56 @@ class TemplateErrorChecking:
 
         return msg
 
+    def dispense_samples(self, sample_data_dict, water_aspirated, p20_tips_used, p300_tips_used):
+        """
+        @param sample_data_dict:
+        @param water_aspirated:
+        """
+
+        sample_parameters = self.sample_dictionary
+
+        for sample_key in sample_parameters:
+            sample_dest_wells = sample_data_dict[sample_key][3]
+            sample_vol = sample_data_dict[sample_key][0]
+            diluent_vol = sample_data_dict[sample_key][1]
+            diluted_sample_vol = sample_data_dict[sample_key][2]
+
+            # If no dilution is necessary, dispense sample and continue
+            if diluted_sample_vol == 0:
+                if sample_vol <= 20:
+                    p20_tips_used += 1
+                else:
+                    p300_tips_used += 1
+                continue
+
+            # Adjust volume of diluted sample to make sure there is enough
+            diluted_template_needed = diluted_sample_vol * (len(sample_dest_wells) + 1)
+            diluted_template_on_hand = sample_vol + diluent_vol
+            diluted_template_factor = 1.0
+            if diluted_template_needed <= diluted_template_on_hand:
+                diluted_template_factor = diluted_template_needed / diluted_template_on_hand
+                if diluted_template_factor <= 1.5 and (sample_vol * diluted_template_factor) < 10:
+                    diluted_template_factor = 2.0
+
+            diluent_vol = diluent_vol * diluted_template_factor
+            if diluted_sample_vol <= 20:
+                p20_tips_used += 1
+            else:
+                p300_tips_used += 1
+
+            if (sample_vol*diluted_template_factor) <= 20:
+                p20_tips_used += 1
+            else:
+                p300_tips_used += 1
+
+            if diluent_vol <= 20:
+                p20_tips_used += 1
+            else:
+                p300_tips_used += 1
+
+            water_aspirated += diluent_vol
+        return water_aspirated, p20_tips_used, p300_tips_used
+
     def droplet_pcr(self):
         """
 
@@ -177,41 +230,75 @@ class TemplateErrorChecking:
                 msg += "There is a Positive Control defined without a Target"
                 print("PositiveControl_{0} is defined without a Target_{0}".format(i + 1))
 
-            elif target:
-                target_slot = target.split(",")[0]
-                msg = self.slot_usage_error_check(target_slot, type_check=target)
-
-            elif positive_control:
-                positive_control_slot = positive_control.split(",")[0]
-                msg = self.slot_usage_error_check(positive_control_slot, type_check=positive_control)
-
             elif target and positive_control:
                 target_count += 1
 
             if msg:
                 return msg
 
-        # Check Supermix volume.
-        well_count = target_count*2
-        for key, value in self.sample_dictionary.items():
-            sample_targets = len(value[4].split(","))
-            well_count += int(value[5])*sample_targets
-        pcr_vol = float(self.args.PCR_Volume)
+        sample_data_dict, water_well_dict, target_well_dict, used_wells, layout_data, msg = \
+            self.ddpcr_sample_processing(target_count)
 
-        pcr_mix_concentration = int(self.args.PCR_MixConcentration.split("x")[0])
-        pcr_vol_provided = float(self.args.PCR_MixResVolume)
-        if (pcr_vol/pcr_mix_concentration)*(well_count+4) > pcr_vol_provided:
-            vol_needed = (pcr_vol/pcr_mix_concentration)*(well_count+4)
-            msg = "Program requires {} uL of Supermix.  You have {} uL".format(vol_needed, self.args.PCR_MixResVolume)
-            return msg
-
-        water_used, p20_tips_used, p300_tips_used, msg = self.ddpcr_sample_processing(target_count)
         if msg:
             return msg
 
+        p20_tips_used = 0
+        p300_tips_used = 0
+        water_aspirated = 0
+
+        for well in water_well_dict:
+            water_vol = water_well_dict[well]
+            if water_vol <= 20:
+                p20_tips_used += 1
+            else:
+                p300_tips_used += 1
+            water_aspirated += water_vol
+
+        for target in target_well_dict:
+            reagent_used = float(self.args.ReagentVolume) * 2
+            target_well_count = 0
+            target_info = getattr(self.args, "Target_{}".format(target))
+            reagent_name = target_info[1]
+            reagent_well_vol = float(target_info[2])
+            reagent_aspirated = float(self.args.ReagentVolume)
+
+            target_well_list = target_well_dict[target]
+            for well in target_well_list:
+                reagent_used += reagent_aspirated
+                if reagent_aspirated <= 20:
+                    p20_tips_used += 1
+                else:
+                    p300_tips_used += 1
+
+            # The penultimate well in the list is the positive control for the target primers
+            positive_control_template_vol = float(self.args.PCR_Volume) - float(self.args.ReagentVolume)
+
+            if positive_control_template_vol <= 20:
+                p20_tips_used += 2
+            else:
+                p300_tips_used += 2
+
+            # Add a reagent tip for the positive control
+            if reagent_aspirated <= 20:
+                p20_tips_used += 2
+            else:
+                p300_tips_used += 2
+
+            target_well_count += len(target_well_list)+2
+            if reagent_used >= reagent_well_vol:
+                msg = "Program requires minimum of {} uL {}.  You have {} uL."\
+                      .format(reagent_used, reagent_name, reagent_well_vol)
+                return msg
+
+        water_aspirated, p20_tips_used, p300_tips_used = \
+            self.dispense_samples(sample_data_dict, water_aspirated, p20_tips_used, p300_tips_used)
+        water_aspirated, p20_tips_used, p300_tips_used = \
+            self.empty_well_vol(self.plate_layout(), target_well_count, p20_tips_used, p300_tips_used, water_aspirated)
+
         # Check Water Volume
-        if int(self.args.WaterResVol) < water_used:
-            msg = "Program requires minimum of {} uL water.  You have {} uL.".format(water_used, self.args.WaterResVol)
+        if int(self.args.WaterResVol) <= water_aspirated:
+            msg = "Program requires minimum of {} uL water.  You have {} uL."\
+                .format(water_aspirated, self.args.WaterResVol)
             return msg
 
         # Check if there are enough tips
@@ -334,12 +421,16 @@ class TemplateErrorChecking:
             (len(self.right_tip_boxes)*96)-tip_box_layout.index(self.args.RightPipetteFirstTip)
 
         if self.args.LeftPipette == "p20_single_gen2":
+            if left_available < 0:
+                left_available = 0
             if left_available < left_tips_used:
                 msg = "Program requires {}, {} tips.  {} tips provided."\
                     .format(int(left_tips_used), self.args.LeftPipette, left_available)
                 return msg
 
         if self.args.RightPipette == "p300_single_gen2":
+            if right_available < 0:
+                right_available = 0
             if right_available < right_tips_used:
                 msg = "Program requires {}, {} tips.  {} tips provided"\
                     .format(int(right_tips_used), self.args.RightPipette, right_available)
@@ -566,74 +657,68 @@ class TemplateErrorChecking:
         # Check if destination PCR plate and dilution labware are tip boxes
         msg = self.slot_usage_error_check(self.slot_dict[self.args.PCR_PlateSlot], type_check="PCR Plate")
         if msg:
-            return "", "", "", msg
+            return "", "", "", "", "", msg
         msg = \
             self.slot_usage_error_check(self.slot_dict[self.args.DilutionPlateSlot], type_check="Dilution Labware")
         if msg:
-            return "", "", "", msg
+            return "", "", "", "", "", msg
 
         sample_parameters = self.sample_dictionary
         rxn_vol = float(self.args.PCR_Volume)
-        supermix_conc = int(self.args.PCR_MixConcentration.split("x")[0])
-        target_vol = float(self.args.TargetVolume)
 
-        self.max_template_vol = round(rxn_vol - ((rxn_vol / supermix_conc) + target_vol), 2)
+        self.max_template_vol = round(rxn_vol-float(self.args.ReagentVolume), 2)
 
         # There is a single no template control for every target that uses max volume.
-        total_water = 50+(self.max_template_vol*target_count)
         plate_layout_by_column = self.plate_layout()
+        sample_data_dict = defaultdict(list)
+        target_well_dict = defaultdict(list)
+        water_well_dict = defaultdict(float)
+        layout_data = defaultdict(list)
 
-        # Initially one p20 per target is used.
-        p20_tip_count = target_count
-        p300_tip_count = 0
+        # Builds the data frame for printing the plate layout file
+        for k in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']:
+            layout_data[k] = ['', '', '', '', '', '', '', '', '', '', '', '', ]
 
-        # There is a single no template + a single positive control for each target.
-        dest_well_count = target_count*2
+        used_wells = []
+        dest_well_count = 0
 
         for sample_key in sample_parameters:
-            sample_source_slot = sample_parameters[sample_key][0]
-            sample_name = sample_parameters[sample_key][2]
             sample_concentration = float(sample_parameters[sample_key][3])
             targets = sample_parameters[sample_key][4].split(",")
             replicates = int(sample_parameters[sample_key][5])
 
-            sample_vol, diluent_vol, diluted_sample_vol, rxn_water_vol = self.calculate_volumes(sample_concentration)
-            diluted_sample_vol = round(diluted_sample_vol, 2)
+            sample_vol, diluent_vol, diluted_sample_vol, reaction_water_vol, max_template_vol = \
+                calculate_volumes(self.args, sample_concentration)
+
             sample_wells = []
-
-            # Make sure the sample source slots are not tip boxes.
-            msg = self.slot_usage_error_check(self.slot_dict[sample_source_slot], type_check=sample_name)
-            if msg:
-                return "", "", "", msg
-
             for target in targets:
                 for i in range(replicates):
-                    total_water += rxn_water_vol
-                    sample_wells.append(plate_layout_by_column[dest_well_count])
+                    well = plate_layout_by_column[dest_well_count]
+                    water_well_dict[well] = reaction_water_vol
+                    target_well_dict[target].append(well)
+                    sample_wells.append(well)
+                    used_wells.append(well)
                     dest_well_count += 1
 
-            # Adjust volume of diluted sample to make sure there is enough
-            volume_ratio = (diluted_sample_vol * len(sample_wells)) / (sample_vol + diluent_vol)
-            if volume_ratio >= 0.66:
-                for i in range(len(sample_wells) + 2):
-                    undiluted_sample_vol = sample_vol * (i + 1)
-                    diluent_vol = diluent_vol * (i + 1)
-                    volume_ratio = (diluted_sample_vol * len(sample_wells)) / (undiluted_sample_vol + diluent_vol)
+            sample_data_dict[sample_key] = [sample_vol, diluent_vol, diluted_sample_vol, sample_wells]
 
-                    if volume_ratio < 0.66:
-                        p20_tip_count, p300_tip_count = self.tip_counter(p20_tip_count, p300_tip_count, undiluted_sample_vol)
-                        p20_tip_count, p300_tip_count = self.tip_counter(p20_tip_count, p300_tip_count, diluent_vol)
-                        break
+        # Define our positive control wells for the targets.
+        for target in target_well_dict:
+            loop_count = 2
+            positive_control = getattr(self.args, "PositiveControl_{}".format(target))
+            control_name = positive_control[2]
 
-            total_water += diluent_vol
+            while loop_count > 0:
+                well = plate_layout_by_column[dest_well_count]
+                used_wells.append(well)
+                if control_name == "Water":
+                    water_well_dict[well] = self.max_template_vol
 
-        total_water, p20_tip_count, p300_tip_count = self.empty_well_vol(plate_layout_by_column, dest_well_count,
-                                                                         p20_tip_count, p300_tip_count, total_water)
+                control_name = "Water"
+                dest_well_count += 1
+                loop_count -= 1
 
-        # ToDo: This should be calculated based on the volumes.
-        p20_tip_count += dest_well_count*2
-
-        return total_water, p20_tip_count, p300_tip_count, ""
+        return sample_data_dict, water_well_dict, target_well_dict, used_wells, layout_data, ""
 
     def empty_well_vol(self, plate_template, used_well_count, p20_tip_count, p300_tip_count, total_water):
         """

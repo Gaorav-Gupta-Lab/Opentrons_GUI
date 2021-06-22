@@ -15,7 +15,6 @@ import shutil
 import sys
 import os
 import socket
-
 import Tool_Box
 from TemplateErrorChecking import TemplateErrorChecking
 from opentrons.simulate import simulate, format_runlog
@@ -207,7 +206,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         slot_error = template_error_check.slot_error_check()
         pipette_error = template_error_check.pipette_error_check()
         tip_box_error = template_error_check.tip_box_error_check()
-        error_msg = template_error_check.illumina_dual_indexing()
+        error_msg = template_error_check.droplet_pcr()
         Tool_Box.debug_messenger(error_msg)
         '''
         with redirect_stdout(f):
