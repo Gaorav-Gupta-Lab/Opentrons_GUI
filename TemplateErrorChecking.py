@@ -16,7 +16,7 @@ import csv
 import Tool_Box
 from Utilities import parse_sample_template, calculate_volumes
 
-__version__ = "0.9.0"
+__version__ = "0.10.0"
 
 
 class TemplateErrorChecking:
@@ -216,28 +216,14 @@ class TemplateErrorChecking:
         if msg:
             return msg
 
-        msg = ""
         target_count = 0
         for i in range(10):
             target = getattr(self.args, "Target_{}".format(i+1))
-            positive_control = getattr(self.args, "PositiveControl_{}".format(i+1))
-
-            if target and not positive_control:
-                msg = "There is a Target defined without a Positive Control.  "
-                print("Target_{0} is defined without a PositiveControl_{0}".format(i+1))
-                
-            elif not target and positive_control:
-                msg += "There is a Positive Control defined without a Target"
-                print("PositiveControl_{0} is defined without a Target_{0}".format(i + 1))
-
-            elif target and positive_control:
+            if target:
                 target_count += 1
 
-            if msg:
-                return msg
-
         sample_data_dict, water_well_dict, target_well_dict, used_wells, layout_data, msg = \
-            self.ddpcr_sample_processing(target_count)
+            self.ddpcr_sample_processing()
 
         if msg:
             return msg
@@ -270,15 +256,7 @@ class TemplateErrorChecking:
                 else:
                     p300_tips_used += 1
 
-            # The penultimate well in the list is the positive control for the target primers
-            positive_control_template_vol = float(self.args.PCR_Volume) - float(self.args.ReagentVolume)
-
-            if positive_control_template_vol <= 20:
-                p20_tips_used += 2
-            else:
-                p300_tips_used += 2
-
-            # Add a reagent tip for the positive control
+            # Add a reagent tip for the no template control
             if reagent_aspirated <= 20:
                 p20_tips_used += 2
             else:
@@ -648,7 +626,7 @@ class TemplateErrorChecking:
 
         return left_tips_used, right_tips_used
 
-    def ddpcr_sample_processing(self, target_count):
+    def ddpcr_sample_processing(self):
         """
 
         :rtype: int
@@ -681,11 +659,19 @@ class TemplateErrorChecking:
 
         used_wells = []
         dest_well_count = 0
-
+        template_in_rxn = float(self.args.DNA_in_Reaction)
         for sample_key in sample_parameters:
             sample_concentration = float(sample_parameters[sample_key][3])
             targets = sample_parameters[sample_key][4].split(",")
             replicates = int(sample_parameters[sample_key][5])
+            sample_name = sample_parameters[sample_key][2]
+
+            if (template_in_rxn/sample_concentration) > self.max_template_vol:
+                min_sample_conc = round(template_in_rxn/self.max_template_vol, 2)
+                msg = "Sample '{}' too dilute.\nMinimum sample concentration required is {} ng/uL"\
+                    .format(sample_name, min_sample_conc)
+
+                return "", "", "", "", "", msg
 
             sample_vol, diluent_vol, diluted_sample_vol, reaction_water_vol, max_template_vol = \
                 calculate_volumes(self.args, sample_concentration)
@@ -704,19 +690,10 @@ class TemplateErrorChecking:
 
         # Define our positive control wells for the targets.
         for target in target_well_dict:
-            loop_count = 2
-            positive_control = getattr(self.args, "PositiveControl_{}".format(target))
-            control_name = positive_control[2]
-
-            while loop_count > 0:
-                well = plate_layout_by_column[dest_well_count]
-                used_wells.append(well)
-                if control_name == "Water":
-                    water_well_dict[well] = self.max_template_vol
-
-                control_name = "Water"
-                dest_well_count += 1
-                loop_count -= 1
+            well = plate_layout_by_column[dest_well_count]
+            used_wells.append(well)
+            water_well_dict[well] = self.max_template_vol
+            dest_well_count += 1
 
         return sample_data_dict, water_well_dict, target_well_dict, used_wells, layout_data, ""
 
