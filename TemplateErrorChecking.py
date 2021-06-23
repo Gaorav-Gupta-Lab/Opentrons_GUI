@@ -644,7 +644,7 @@ class TemplateErrorChecking:
         sample_parameters = self.sample_dictionary
         rxn_vol = float(self.args.PCR_Volume)
 
-        self.max_template_vol = round(rxn_vol-float(self.args.ReagentVolume), 2)
+        self.max_template_vol = round(rxn_vol-float(self.args.ReagentVolume), 1)
 
         # There is a single no template control for every target that uses max volume.
         plate_layout_by_column = self.plate_layout()
@@ -666,7 +666,7 @@ class TemplateErrorChecking:
             replicates = int(sample_parameters[sample_key][5])
             sample_name = sample_parameters[sample_key][2]
 
-            if (template_in_rxn/sample_concentration) > self.max_template_vol:
+            if round(template_in_rxn/sample_concentration, 2) > self.max_template_vol:
                 min_sample_conc = round(template_in_rxn/self.max_template_vol, 2)
                 msg = "Sample '{}' too dilute.\nMinimum sample concentration required is {} ng/uL"\
                     .format(sample_name, min_sample_conc)
