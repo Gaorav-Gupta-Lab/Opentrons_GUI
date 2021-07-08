@@ -26,7 +26,7 @@ from contextlib import redirect_stdout, suppress
 from scp import SCPClient
 
 
-__version__ = "0.7.1"
+__version__ = "0.8.0"
 # pyside2-uic MainWindow.ui -o UI_MainWindow.py
 
 
@@ -281,11 +281,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         labware_location = "{}{}custom_labware".format(os.path.dirname(self.path_to_program), os.sep)
         run_log, __bundle__ = simulate(protocol_file, custom_labware_paths=[labware_location], propagate_logs=False)
 
-        # Write the simulation steps to a file if not on robot.
-        # if platform.system() == "Windows":
+        # Write the simulation steps to a file
         simulation_date = datetime.datetime.today().strftime("%a %b %d %H:%M %Y")
-        outfile = open("C:{0}Users{0}{1}{0}Documents{0}Simulation.txt".format(os.sep, os.getlogin()),
-                       'w', encoding="UTF-16")
+        outfile = open("C:{0}Users{0}{1}{0}Documents{0}{2}_Simulation.txt"
+                       .format(os.sep, os.getlogin(), self.selected_program), 'w', encoding="UTF-16")
         step_number = 1
         t = format_runlog(run_log).split("\n")
         outstring = "Opentrons OT-2 Steps.\nDate:  {}\nProgram File: {}\nTSV File:  {}\n\nStep\tCommand\n"\
