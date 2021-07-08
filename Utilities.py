@@ -13,7 +13,16 @@ import math
 from collections import defaultdict
 from types import SimpleNamespace
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
+
+
+def plate_layout():
+    rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+    plate_layout_by_column = []
+    for i in range(12):
+        for row in rows:
+            plate_layout_by_column.append("{}{}".format(row, i+1))
+    return plate_layout_by_column
 
 
 def labware_cone_volume(args, labware_name):

@@ -158,6 +158,8 @@ class TemplateErrorChecking:
         """
         @param sample_data_dict:
         @param water_aspirated:
+        @param p20_tips_used:
+        @param p300_tips_used:
         """
 
         sample_parameters = self.sample_dictionary
@@ -322,7 +324,8 @@ class TemplateErrorChecking:
             if key in reagent_labware:
                 reagent_labware_pass = True
                 label_list = self.well_label_dict[key]
-                if self.args.WaterWell not in label_list:
+
+                if self.args.WaterResWell not in label_list:
                     msg = "The water well definition is not possible for {}".format(reagent_labware)
                     print("ERROR: {}".format(msg))
                     return msg
@@ -368,6 +371,10 @@ class TemplateErrorChecking:
 
         wells_used = len(dest_test)+1
         water_required, left_tips_used, right_tips_used, msg = self.pcr_sample_processing(wells_used)
+
+        # Sample too concentrated error
+        if right_tips_used and msg:
+            return msg
 
         # Sample too dilute error
         if msg:
@@ -432,7 +439,7 @@ class TemplateErrorChecking:
         for key in self.well_label_dict:
             label_list = self.well_label_dict[key]
             if key in reagent_labware:
-                if self.args.WaterWell not in label_list:
+                if self.args.WaterResWell not in label_list:
                     msg = "The water well definition is not possible for {}".format(reagent_labware)
                     print("ERROR: {}".format(msg))
                     return msg
@@ -471,14 +478,13 @@ class TemplateErrorChecking:
             else:
                 index_dict[sample_index] = sample_name
 
-
         dest_test.append("{}+{}".format(sample_dest_slot, sample_dest_well))
         for source in source_test:
             if source in dest_test:
                 msg = "More than one sample share the same source and/or destinations"
                 print("ERROR:  {}".format(msg))
                 return msg
-        Tool_Box.debug_messenger(dest_test)
+
         wells_used = len(dest_test)
         water_required, left_tips_used, right_tips_used, msg = self.pcr_sample_processing(wells_used, indexing_rxn=True)
 
@@ -601,12 +607,20 @@ class TemplateErrorChecking:
                 sample_concentration = float(sample_parameters[sample_key][3])
             sample_vol = round(template_required/sample_concentration, 2)
             water_vol = (float(self.args.PCR_Volume)*0.5)-sample_vol
+
+            if sample_vol <= 1.1 and not getattr(self.args, "DilutionPlateSlot"):
+                msg = "Sample {} requires dilution but no --DilutionPlateSlot given."\
+                    .format(sample_parameters[sample_key][2])
+
+                return 0, 0, True, msg
+
             if sample_vol > float(self.args.PCR_Volume)*0.5:
-                print(template_required, sample_vol, sample_concentration)
                 msg = "Sample {} is too dilute.  Minimum required concentration is {} ng/uL."\
                     .format(sample_parameters[sample_key][2],
                             round(template_required/(float(self.args.PCR_Volume)*0.5), 2))
-                return 0, 0, 0, msg
+
+                return 0, 0, False, msg
+
             water_required += water_vol
             left_tips_used, right_tips_used = self.tip_counter(left_tips_used, right_tips_used, water_vol)
             left_tips_used, right_tips_used = self.tip_counter(left_tips_used, right_tips_used, sample_vol)
