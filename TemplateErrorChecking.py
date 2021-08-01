@@ -104,6 +104,11 @@ class TemplateErrorChecking:
         return slot_error
 
     def pipette_error_check(self):
+        """
+        This will check if the pipette definition given in the template file is proper.  If will not check if these
+        match what is actually installed on the robot.
+        :return:
+        """
         msg = ""
         pipette_error = False
         log.info("Checking Pipette Definitions")
@@ -215,6 +220,7 @@ class TemplateErrorChecking:
         reagent_labware = self.slot_dict[reagent_slot]
 
         msg = self.slot_usage_error_check(reagent_labware, type_check="Reagent")
+
         if msg:
             return msg
 
@@ -294,6 +300,7 @@ class TemplateErrorChecking:
 
         reagent_slot = self.args.ReagentSlot
         reagent_labware = self.slot_dict[reagent_slot]
+
         self.max_template_vol = float(self.args.PCR_Volume)*0.5
         msg = self.slot_usage_error_check(reagent_labware, type_check="Reagent")
         if msg:
@@ -341,6 +348,7 @@ class TemplateErrorChecking:
         # Process Sample data;
         source_test = []
         dest_test = []
+        wells_used = 1
         for sample_key in self.sample_dictionary:
             sample_source_slot = self.sample_dictionary[sample_key][0]
             sample_source_labware = self.slot_dict[sample_source_slot]
@@ -361,6 +369,7 @@ class TemplateErrorChecking:
 
             # If there are replicates a single sample can have more than one destination well.
             for well in sample_dest_well:
+                wells_used += 1
                 dest_test.append("{}+{}".format(sample_dest_slot, well))
 
         for source in source_test:
@@ -369,7 +378,7 @@ class TemplateErrorChecking:
                 print("ERROR:  {}".format(msg))
                 return msg
 
-        wells_used = len(dest_test)+1
+        # wells_used = len(dest_test)+1
         water_required, left_tips_used, right_tips_used, msg = self.pcr_sample_processing(wells_used)
 
         # Sample too concentrated error
@@ -410,7 +419,7 @@ class TemplateErrorChecking:
                 left_available = 0
             if left_available < left_tips_used:
                 msg = "Program requires {}, {} tips.  {} tips provided."\
-                    .format(int(left_tips_used), self.args.LeftPipette, left_available)
+                    .format(left_tips_used, self.args.LeftPipette, left_available)
                 return msg
 
         if self.args.RightPipette == "p300_single_gen2":
@@ -431,6 +440,7 @@ class TemplateErrorChecking:
         if msg:
             return msg
         msg = self.slot_usage_error_check(self.slot_dict[self.args.IndexPrimersSlot], type_check="Index Primers")
+
         if msg:
             return msg
 
@@ -585,6 +595,7 @@ class TemplateErrorChecking:
         if indexing_rxn:
             indexing_tips = used_wells*2
 
+        # Force the user to have 4 extra tips as a buffer.
         left_tips_used = 4
         right_tips_used = 4
         if self.args.LeftPipette == "p20_single_gen2" and pcr_mix_required <= 20:
