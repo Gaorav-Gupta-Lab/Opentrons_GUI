@@ -15,6 +15,8 @@ from types import SimpleNamespace
 
 __version__ = "0.2.2"
 
+import Tool_Box
+
 
 def plate_layout():
     rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
@@ -95,6 +97,7 @@ def parse_sample_template(input_file):
                     if "Target_" in key or "PositiveControl_" in key:
                         key_value = (line[1], line[2], line[3])
                     options_dictionary[key] = key_value
+
                 elif "--" not in line[0] and int(line[0]) < 12:
                     sample_key = line[0], line[1]
                     tmp_line.append(line[i])
@@ -229,7 +232,7 @@ def calculate_volumes(args, sample_concentration):
 
 
 def dispensing_loop(args, loop_count, pipette, source_location, destination_location, volume, NewTip, MixReaction,
-                    touch=False, MixVolume=None):
+                    touch=False, MixVolume=None, speed=None):
     """
     Generic function to dispense material into designated well.
     @param args:
@@ -242,9 +245,13 @@ def dispensing_loop(args, loop_count, pipette, source_location, destination_loca
     @param MixReaction:
     @param touch:
     @return:
+    :param speed:
     """
     def tip_touch():
         pipette.touch_tip(radius=0.75, v_offset=-8)
+
+    if not speed:
+        speed = 1
 
     if NewTip:
         if pipette.has_tip:
@@ -254,12 +261,12 @@ def dispensing_loop(args, loop_count, pipette, source_location, destination_loca
         pipette.pick_up_tip()
 
     while loop_count > 0:
-        pipette.aspirate(volume, source_location)
+        pipette.aspirate(volume, source_location, rate=speed)
 
         if touch:
             tip_touch()
 
-        pipette.dispense(volume, destination_location)
+        pipette.dispense(volume, destination_location, rate=0.75)
         loop_count -= 1
 
         if not MixReaction:
