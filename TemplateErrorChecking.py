@@ -16,7 +16,7 @@ import csv
 import Tool_Box
 from Utilities import parse_sample_template, calculate_volumes
 
-__version__ = "0.10.0"
+__version__ = "0.10.1"
 
 
 class TemplateErrorChecking:
@@ -79,6 +79,11 @@ class TemplateErrorChecking:
         return sample_dictionary, SimpleNamespace(**options_dictionary)
 
     def slot_error_check(self):
+        """
+        Make sure the slots contain valid labware definitions and check for inappropriate labware such as a pipette
+        tip box in the defined reagent slot.
+        :return:
+        """
         slot_error = ""
         slot_list = \
             ["Slot1", "Slot2", "Slot3", "Slot4", "Slot5", "Slot6", "Slot7", "Slot8", "Slot9", "Slot10", "Slot11"]
@@ -105,7 +110,7 @@ class TemplateErrorChecking:
 
     def pipette_error_check(self):
         """
-        This will check if the pipette definition given in the template file is proper.  If will not check if these
+        This will check if the pipette definition given in the template file is proper.  It will not check if these
         match what is actually installed on the robot.
         :return:
         """
@@ -146,6 +151,12 @@ class TemplateErrorChecking:
         return msg
 
     def slot_usage_error_check(self, labware, type_check):
+        """
+        Check that labware in slots is appropriate for program being executed.
+        :param labware:
+        :param type_check:
+        :return:
+        """
         msg = ""
         # Check the reagent slot and reagent wells
         if not self.args.ReagentSlot:
@@ -226,8 +237,8 @@ class TemplateErrorChecking:
 
         target_count = 0
         for i in range(10):
-            target = getattr(self.args, "Target_{}".format(i+1))
-            if target:
+            # target = getattr(self.args, "Target_{}".format(i+1))
+            if getattr(self.args, "Target_{}".format(i+1)):
                 target_count += 1
 
         sample_data_dict, water_well_dict, target_well_dict, used_wells, layout_data, msg = \
@@ -243,13 +254,14 @@ class TemplateErrorChecking:
         for well in water_well_dict:
             water_vol = water_well_dict[well]
             if water_vol <= 20:
-                p20_tips_used += 1
+                p20_tips_used = 1
             else:
-                p300_tips_used += 1
+                p300_tips_used = 1
             water_aspirated += water_vol
 
+        target_well_count = 0
         for target in target_well_dict:
-            reagent_used = float(self.args.ReagentVolume) * 2
+            reagent_used = float(self.args.ReagentVolume) * 1.5
             target_well_count = 0
             target_info = getattr(self.args, "Target_{}".format(target))
             reagent_name = target_info[1]
@@ -265,12 +277,12 @@ class TemplateErrorChecking:
                     p300_tips_used += 1
 
             # Add a reagent tip for the no template control
-            if reagent_aspirated <= 20:
+            if float(self.args.PCR_Volume)-reagent_aspirated <= 20:
                 p20_tips_used += 2
             else:
                 p300_tips_used += 2
 
-            target_well_count += len(target_well_list)+2
+            target_well_count += len(target_well_list)
             if reagent_used >= reagent_well_vol:
                 msg = "Program requires minimum of {} uL {}.  You have {} uL."\
                       .format(reagent_used, reagent_name, reagent_well_vol)
@@ -278,6 +290,10 @@ class TemplateErrorChecking:
 
         water_aspirated, p20_tips_used, p300_tips_used = \
             self.dispense_samples(sample_data_dict, water_aspirated, p20_tips_used, p300_tips_used)
+
+        if target_well_count == 0:
+            return "Number of wells containing targets is 0.  Check TSV file for errors."
+
         water_aspirated, p20_tips_used, p300_tips_used = \
             self.empty_well_vol(self.plate_layout(), target_well_count, p20_tips_used, p300_tips_used, water_aspirated)
 
@@ -625,12 +641,19 @@ class TemplateErrorChecking:
 
                 return 0, 0, True, msg
 
+            # Check sample concentration.
+            msg = self.sample_concentration_check(sample_vol, sample_concentration, sample_parameters[sample_key][2])
+            if msg:
+                return 0, 0, False, msg
+
+            '''
             if sample_vol > float(self.args.PCR_Volume)*0.5:
                 msg = "Sample {} is too dilute.  Minimum required concentration is {} ng/uL."\
                     .format(sample_parameters[sample_key][2],
                             round(template_required/(float(self.args.PCR_Volume)*0.5), 2))
 
                 return 0, 0, False, msg
+            '''
 
             water_required += water_vol
             left_tips_used, right_tips_used = self.tip_counter(left_tips_used, right_tips_used, water_vol)
@@ -650,6 +673,15 @@ class TemplateErrorChecking:
             right_tips_used += 1
 
         return left_tips_used, right_tips_used
+
+    def sample_concentration_check(self, template_in_rxn, sample_concentration, sample_name):
+        msg = ""
+        if round(template_in_rxn / sample_concentration, 2) > self.max_template_vol:
+            min_sample_conc = round(template_in_rxn / self.max_template_vol, 2)
+            msg = "Sample '{}' too dilute.\nMinimum sample concentration required is {} ng/uL" \
+                .format(sample_name, min_sample_conc)
+
+        return msg
 
     def ddpcr_sample_processing(self):
         """
@@ -691,12 +723,17 @@ class TemplateErrorChecking:
             replicates = int(sample_parameters[sample_key][5])
             sample_name = sample_parameters[sample_key][2]
 
+            msg = self.sample_concentration_check(template_in_rxn, sample_concentration, sample_name)
+            if msg:
+                return "", "", "", "", "", msg
+            '''
             if round(template_in_rxn/sample_concentration, 2) > self.max_template_vol:
                 min_sample_conc = round(template_in_rxn/self.max_template_vol, 2)
                 msg = "Sample '{}' too dilute.\nMinimum sample concentration required is {} ng/uL"\
                     .format(sample_name, min_sample_conc)
 
                 return "", "", "", "", "", msg
+             '''
 
             sample_vol, diluent_vol, diluted_sample_vol, reaction_water_vol, max_template_vol = \
                 calculate_volumes(self.args, sample_concentration)
