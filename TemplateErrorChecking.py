@@ -641,19 +641,10 @@ class TemplateErrorChecking:
 
                 return 0, 0, True, msg
 
-            # Check sample concentration.
+            # Check sample concentration.  At the first low concentration sample return a message.
             msg = self.sample_concentration_check(sample_vol, sample_concentration, sample_parameters[sample_key][2])
             if msg:
                 return 0, 0, False, msg
-
-            '''
-            if sample_vol > float(self.args.PCR_Volume)*0.5:
-                msg = "Sample {} is too dilute.  Minimum required concentration is {} ng/uL."\
-                    .format(sample_parameters[sample_key][2],
-                            round(template_required/(float(self.args.PCR_Volume)*0.5), 2))
-
-                return 0, 0, False, msg
-            '''
 
             water_required += water_vol
             left_tips_used, right_tips_used = self.tip_counter(left_tips_used, right_tips_used, water_vol)
@@ -726,14 +717,6 @@ class TemplateErrorChecking:
             msg = self.sample_concentration_check(template_in_rxn, sample_concentration, sample_name)
             if msg:
                 return "", "", "", "", "", msg
-            '''
-            if round(template_in_rxn/sample_concentration, 2) > self.max_template_vol:
-                min_sample_conc = round(template_in_rxn/self.max_template_vol, 2)
-                msg = "Sample '{}' too dilute.\nMinimum sample concentration required is {} ng/uL"\
-                    .format(sample_name, min_sample_conc)
-
-                return "", "", "", "", "", msg
-             '''
 
             sample_vol, diluent_vol, diluted_sample_vol, reaction_water_vol, max_template_vol = \
                 calculate_volumes(self.args, sample_concentration)
@@ -780,7 +763,6 @@ class TemplateErrorChecking:
         Calculates volumes for dilution and distribution of sample.
         Returns a list of tuples consisting of
         (uL of sample to dilute, uL of water for dilution), (uL of diluted sample in reaction, uL of water in reaction)
-        @param args:
         @param sample_concentration:
         @return:
         """
