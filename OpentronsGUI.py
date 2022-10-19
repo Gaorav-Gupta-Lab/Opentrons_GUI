@@ -132,13 +132,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def transfer_tsv_file(self):
         """
         If everything checks out then transfer the files to the robot.
+        :rtype: object
         :return:
         """
 
         # Establish a connection to the robot.
         self.ssh_client = self.connect_to_ot2()
 
-        # If communications with the OT-2 cannot be established then let the user know so they can decide.
+        # If communications with the OT-2 cannot be established then let the user know.  This might be an expected 
+        # behavior.
         if not self.ssh_client:
             self.warning_report("Communications with OT-2 not established.  If this was expected then you can safely "
                                 "ignore this message")
@@ -189,6 +191,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         This will check the ProcedureTSV file for syntax errors.
         :return:
         """
+        """Debugging the ssh problems.  Remove this block when solved."""
+        self.transfer_tsv_file()
+        raise SystemExit("Dragon Hunting")
+        """End of ssh debugging block"""
 
         # If we have a critical error then don't do anything else.
         if self.critical_error:
