@@ -15,7 +15,6 @@ import shutil
 import sys
 import os
 import socket
-import Tool_Box
 from TemplateErrorChecking import TemplateErrorChecking
 from opentrons.simulate import simulate, format_runlog
 from UI_MainWindow import Ui_MainWindow
@@ -24,9 +23,10 @@ from PySide2.QtWidgets import QApplication
 from paramiko import SSHClient, AutoAddPolicy
 from contextlib import redirect_stdout, suppress
 from scp import SCPClient
+import Tool_Box
 
 
-__version__ = "0.8.0"
+__version__ = "1.0.0"
 # pyside2-uic MainWindow.ui -o UI_MainWindow.py
 
 
@@ -154,7 +154,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.select_file()
 
         # program_path = os.path.dirname(self.path_to_program)
-        program_name = os.path.basename(self.path_to_program)
+        # program_name = os.path.basename(self.path_to_program)
 
         # Initialize scp and transfer the files to the robot.
         scp = SCPClient(self.ssh_client.get_transport())
@@ -191,10 +191,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         This will check the ProcedureTSV file for syntax errors.
         :return:
         """
-        """Debugging the ssh problems.  Remove this block when solved."""
-        self.transfer_tsv_file()
-        raise SystemExit("Dragon Hunting")
-        """End of ssh debugging block"""
 
         # If we have a critical error then don't do anything else.
         if self.critical_error:
@@ -203,7 +199,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if not self.selected_program:
             self.warning_report("Please Select Program for Simulation from dropdown list first.")
 
-        # Redirect stdout and stderr here so they can be displayed in the GUI
+        # Redirect stdout and stderr so they can be displayed in the GUI
         f = io.StringIO()
 
         template_error_check = TemplateErrorChecking(self.path_to_tsv)
@@ -217,6 +213,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         '''
         with redirect_stdout(f):
             # Initialize template error checking
+            value_error = template_error_check.parameter_checks()
+            if value_error:
+                self.error_report(value_error)
+                return
+
             slot_error = template_error_check.slot_error_check()
 
             if slot_error:
@@ -233,14 +234,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.error_report(tip_box_error)
                 return
 
-            if self.selected_program == "Generic PCR":
-                error_msg = template_error_check.generic_pcr()
+            if self.selected_program == "Generic PCR" or self.selected_program == "ddPCR":
+                error_msg = template_error_check.pcr_check(self.selected_program)
 
             elif self.selected_program == "Illumina_Dual_Indexing":
                 error_msg = template_error_check.illumina_dual_indexing()
 
-            elif self.selected_program == "ddPCR":
-                error_msg = template_error_check.droplet_pcr()
+            else:
+                error_msg = "Somehow you have selected a program that does not exist.\nConsult the code admin."
 
             if error_msg:
                 self.error_report(error_msg)
@@ -248,13 +249,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.run_simulation_output.insertPlainText('{}'.format(f.getvalue()))
         if self.selected_program == "Generic PCR":
-            self.path_to_program = "C:{0}Opentrons_Programs{0}Generic_PCR.py".format(os.sep)
+            # self.path_to_program = "C:{0}Opentrons_Programs{0}Generic_PCR.py".format(os.sep)
+            self.path_to_program = "C:{0}Opentrons_Programs{0}PCR.py".format(os.sep)
 
         elif self.selected_program == "Illumina_Dual_Indexing":
             self.path_to_program = "C:{0}Opentrons_Programs{0}Illumina_Dual_Indexing.py".format(os.sep)
 
         elif self.selected_program == "ddPCR":
-            self.path_to_program = "C:{0}Opentrons_Programs{0}ddPCR.py".format(os.sep)
+            # self.path_to_program = "C:{0}Opentrons_Programs{0}ddPCR.py".format(os.sep)
+            self.path_to_program = "C:{0}Opentrons_Programs{0}PCR.py".format(os.sep)
 
         self.run_simulation_output.insertPlainText('Begin Program Simulation.\n'.format(f.getvalue()))
         self.simulate_program()
