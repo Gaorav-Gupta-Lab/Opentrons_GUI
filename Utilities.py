@@ -230,50 +230,6 @@ def build_labware_dict(protocol, sample_parameters, slot_dict):
     return sample_reagent_labware_dict
 
 
-def oldcalculate_volumes(args, sample_concentration):
-    """
-    Calculates volumes for dilution and distribution of sample.
-    Returns a list of tuples consisting of [(uL of sample to dilute, uL of water for dilution),
-     (uL of diluted sample in reaction, uL of water in reaction)]
-    @param args:
-    @param sample_concentration:
-    @return:
-    """
-
-    template_in_reaction = float(args.DNA_in_Reaction)
-    reagent_volume = float(args.PCR_Volume)*0.5
-
-    if getattr(args, "ReagentVolume", None):
-        reagent_volume = float(getattr(args, "ReagentVolume"))
-
-    max_template_vol = round(float(args.PCR_Volume)-reagent_volume, 1)
-
-    # Get the minimum template concentration per uL allowed.
-    # min_template_concentration = template_in_reaction/max_template_vol
-
-    # If template concentration per uL is less than desired template in reaction then no dilution is necessary.
-    # if sample_concentration <= max_template_concentration:
-
-    # If at least 2 uL of sample is needed then no dilution is necessary
-    if template_in_reaction/sample_concentration >= 2:
-        sample_vol = round(template_in_reaction/sample_concentration, 2)
-        return sample_vol, 0, 0, max_template_vol-sample_vol, max_template_vol
-
-    # This will test a series of dilutions up to a 1:200.
-    for i in range(50):
-        dilution = (i+1)*2
-        diluted_dna_conc = sample_concentration/dilution
-
-        # if max_template_concentration >= diluted_dna_conc >= min_template_concentration:
-
-        # Want to pipette at least 2 uL of diluted sample per well
-        if 2 <= template_in_reaction/diluted_dna_conc <= max_template_vol:
-            diluted_sample_vol = round(template_in_reaction/diluted_dna_conc, 2)
-            reaction_water_vol = max_template_vol-diluted_sample_vol
-
-            return 1, dilution - 1, diluted_sample_vol, reaction_water_vol, max_template_vol
-
-
 def calculate_volumes(args, sample_concentration, template_in_rxn, sample_name=None):
     """
     Calculates volumes for dilution and distribution of sample.
