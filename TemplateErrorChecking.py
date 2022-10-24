@@ -420,7 +420,7 @@ class TemplateErrorChecking:
             msg += "--RegentVolume is not defined.\n"
         if not self.args.WaterResVol:
             msg += "--WaterResVol is not defined"
-        if not self.args.DNA_in_Reaction:
+        if self.args.Template == " Illumina Dual Indexing" and not self.args.DNA_in_Reaction:
             msg += "--DNA_in_Reaction is not defined"
 
         if self.args.ReagentSlot:
