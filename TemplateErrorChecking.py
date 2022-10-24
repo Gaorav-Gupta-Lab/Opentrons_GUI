@@ -263,7 +263,7 @@ class TemplateErrorChecking:
                     target_count += 1
                     if not target[0]:
                         msg += "{} Well definition is missing".format(target[i])
-                    if target[0] == self.args.WaterResWell:
+                    if target[0] == self.args.WaterResWell.upper():
                         msg += "{} Well definition is the same as the --WaterResWell".format(target[i])
                     if not target[1]:
                         msg += "{} Target Name definition is missing".format(target[i])
@@ -286,27 +286,12 @@ class TemplateErrorChecking:
         elif template == " ddPCR" and self.args.Version != "v1.0.0":
             return "{} template must be v1.0.0, you are using {}".format(template, self.args.Version)
 
-        msg = ""
-        if not self.args.ReagentSlot:
-            msg += "--ReagentSlot is not defined.\n"
-        if not self.args.PCR_Volume:
-            msg += "--PCR_Volume is not defined.\n"
-        if not self.args.ReagentVolume:
-            msg += "--RegentVolume is not defined.\n"
-        if not self.args.WaterResVol:
-            msg += "--WaterResVol is not defined"
+        msg, reagent_labware = self.missing_parameters()
 
         if msg:
             return msg
 
         self.max_template_vol = round(float(self.args.PCR_Volume) - float(self.args.ReagentVolume), 1)
-        reagent_slot = self.args.ReagentSlot
-
-        try:
-            reagent_labware = self.slot_dict[reagent_slot]
-        except KeyError:
-            return "--ReagentSlot {} has no labware defined".format(self.args.ReagentSlot)
-
         msg = self.slot_usage_error_check(reagent_labware, type_check="Reagent")
 
         if msg:
@@ -424,32 +409,71 @@ class TemplateErrorChecking:
                     .format(int(right_tips_used), self.args.RightPipette, right_available)
         return msg
 
-    def illumina_dual_indexing(self):
+    def missing_parameters(self):
+        msg = ""
+        reagent_labware = ""
+        if not self.args.ReagentSlot:
+            msg += "--ReagentSlot is not defined.\n"
+        if not self.args.PCR_Volume:
+            msg += "--PCR_Volume is not defined.\n"
+        if not self.args.ReagentVolume:
+            msg += "--RegentVolume is not defined.\n"
+        if not self.args.WaterResVol:
+            msg += "--WaterResVol is not defined"
+        if not self.args.DNA_in_Reaction:
+            msg += "--DNA_in_Reaction is not defined"
 
-        reagent_slot = self.args.ReagentSlot
-        reagent_labware = self.slot_dict[reagent_slot]
+        if self.args.ReagentSlot:
+            try:
+                reagent_labware = self.slot_dict[self.args.ReagentSlot]
+            except KeyError:
+                msg += "--ReagentSlot {} has no labware defined".format(self.args.ReagentSlot)
+
+        return msg, reagent_labware
+
+    def illumina_dual_indexing(self, template):
+
+        if self.args.Version != "v1.0.0":
+            return "{} template must be v1.0.0, you are using {}".format(template, self.args.Version)
+
+        msg, reagent_labware = self.missing_parameters()
+
+        if not self.args.PCR_ReagentWell:
+            msg += "--PCR_ReagentWell is not defined"
+
+        if not self.args.IndexPrimerSlot:
+            msg += "--IndexPrimerSlot is not defined"
+
+        try:
+            self.slot_dict[self.args.IndexPrimerSlot]
+        except KeyError:
+            msg += "--IndexPrimerSlot {} has no labware defined".format(self.args.IndexPrimerSlot)
+
+        try:
+            self.slot_dict[self.args.PCR_PlateSlot]
+        except KeyError:
+            msg += "--PCR_PlateSlot {} has no labware defined".format(self.args.PCR_PlateSlot)
+
+        if msg:
+            return msg
 
         # Check for slot conflicts
         msg = self.slot_usage_error_check(reagent_labware, type_check="Reagent")
         if msg:
             return msg
-        msg = self.slot_usage_error_check(self.slot_dict[self.args.IndexPrimersSlot], type_check="Index Primers")
+
+        msg = self.slot_usage_error_check(self.slot_dict[self.args.IndexPrimerSlot], type_check="Index Primers")
 
         if msg:
             return msg
 
-        self.max_template_vol = float(self.args.PCR_Volume) * 0.5
+        self.max_template_vol = round(float(self.args.PCR_Volume) - float(self.args.ReagentVolume), 1)
 
         for key in self.well_label_dict:
             label_list = self.well_label_dict[key]
             if key in reagent_labware:
-                if self.args.WaterResWell not in label_list:
+                if self.args.WaterResWell.upper() not in label_list:
                     msg = "The water well definition is not possible for {}".format(reagent_labware)
-                    print("ERROR: {}".format(msg))
-                    return msg
-
-                if self.args.PCR_MixWell not in label_list:
-                    msg = "The well defined for the PCR Mix is not possible for {}".format(reagent_labware)
                     print("ERROR: {}".format(msg))
                     return msg
 
@@ -457,16 +481,31 @@ class TemplateErrorChecking:
         source_test = []
         dest_test = []
         index_dict = {}
+        sample_dest_slot = self.args.PCR_PlateSlot
+
+        if len(self.sample_dictionary) == 0:
+            return "Sample information section error.  Possible missing sample slot."
+
+        msg = ""
         for sample_key in self.sample_dictionary:
             sample_source_slot = self.sample_dictionary[sample_key][0]
             sample_source_well = self.sample_dictionary[sample_key][1]
             sample_index = self.sample_dictionary[sample_key][2]
             sample_name = self.sample_dictionary[sample_key][3]
-            sample_dest_slot = self.sample_dictionary[sample_key][5]
-            sample_dest_well = self.sample_dictionary[sample_key][6]
+            sample_dest_well = self.sample_dictionary[sample_key][5]
+            if not sample_source_well:
+                msg += "Sample Source Well is not defined for sample {}".format(self.sample_dictionary[sample_key][3])
+            if not sample_index:
+                msg += "Sample Index is not defined for sample {}".format(self.sample_dictionary[sample_key][3])
+            if not sample_name:
+                msg += "Sample Name is not defined for sample in Slot {}, Well {}"\
+                    .format(sample_source_slot, sample_source_well)
+            if not sample_dest_well:
+                msg += "Destination Well is not defined for sample {}".format(self.sample_dictionary[sample_key][3])
+
             source_test.append("{}+{}".format(sample_source_slot, sample_source_well))
             # Make sure the sample source and destination slots are not tip boxes.
-            msg = self.slot_usage_error_check(self.slot_dict[sample_source_slot], type_check=sample_name)
+            msg += self.slot_usage_error_check(self.slot_dict[sample_source_slot], type_check=sample_name)
             if msg:
                 return msg
 
@@ -505,9 +544,9 @@ class TemplateErrorChecking:
         # Check PCR reagent volume
         pcr_mix_required = float(self.args.PCR_Volume)*0.5*wells_used
 
-        if pcr_mix_required > float(self.args.PCR_MixResVolume):
+        if pcr_mix_required > float(self.args.ReagentVolume):
             msg = "Program requires {} uL of PCR mix.  You have {} uL"\
-                .format(pcr_mix_required, self.args.PCR_MixResVolume)
+                .format(pcr_mix_required, self.args.ReagentVolume)
             return msg
 
         # Check if there are enough tips

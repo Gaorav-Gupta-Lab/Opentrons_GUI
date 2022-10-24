@@ -238,7 +238,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 error_msg = template_error_check.pcr_check(self.selected_program)
 
             elif self.selected_program == "Illumina_Dual_Indexing":
-                error_msg = template_error_check.illumina_dual_indexing()
+                error_msg = template_error_check.illumina_dual_indexing(self.selected_program)
 
             else:
                 error_msg = "Somehow you have selected a program that does not exist.\nConsult the code admin."
