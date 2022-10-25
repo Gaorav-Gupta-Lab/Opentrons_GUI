@@ -43,8 +43,8 @@ class TemplateErrorChecking:
         msg = ""
         if not self.args.PCR_Volume:
             msg += "--PCR_Volume parameter is missing from template.\n"
-        if not self.args.ReagentVolume:
-            msg += "--ReagentVolume parameter is missing from template.\n"
+        if not self.args.TotalReagentVolume:
+            msg += "--TotalReagentVolume parameter is missing from template.\n"
         if not self.args.WaterResVol:
             msg += "--WaterResVol parameter is missing from template.\n"
         if not self.args.WaterResWell:
@@ -291,7 +291,7 @@ class TemplateErrorChecking:
         if msg:
             return msg
 
-        self.max_template_vol = round(float(self.args.PCR_Volume) - float(self.args.ReagentVolume), 1)
+        self.max_template_vol = round(float(self.args.PCR_Volume) - float(self.args.MasterMixPerRxn), 1)
         msg = self.slot_usage_error_check(reagent_labware, type_check="Reagent")
 
         if msg:
@@ -323,14 +323,14 @@ class TemplateErrorChecking:
         target_well_count = 0
         for target in target_well_dict:
             # Force user to include extra reagent in tube to account for pipetting errors
-            reagent_used = float(self.args.ReagentVolume) * 1.5
+            reagent_used = float(self.args.MasterMixPerRxn) * 1.5
 
             # Get information about the master mix
             target_info = getattr(self.args, "Target_{}".format(target))
             reagent_well_vol = float(target_info[2])
 
             # How much master mix per reaction?
-            reagent_aspirated = float(self.args.ReagentVolume)
+            reagent_aspirated = float(self.args.MasterMixPerRxn)
 
             target_well_list = target_well_dict[target]
 
@@ -416,8 +416,8 @@ class TemplateErrorChecking:
             msg += "--ReagentSlot is not defined.\n"
         if not self.args.PCR_Volume:
             msg += "--PCR_Volume is not defined.\n"
-        if not self.args.ReagentVolume:
-            msg += "--RegentVolume is not defined.\n"
+        if not self.args.TotalReagentVolume:
+            msg += "--TotalRegentVolume is not defined.\n"
         if not self.args.WaterResVol:
             msg += "--WaterResVol is not defined"
         if self.args.Template == " Illumina Dual Indexing" and not self.args.DNA_in_Reaction:
@@ -467,7 +467,7 @@ class TemplateErrorChecking:
         if msg:
             return msg
 
-        self.max_template_vol = round(float(self.args.PCR_Volume) - float(self.args.ReagentVolume), 1)
+        self.max_template_vol = round(float(self.args.PCR_Volume) - float(self.args.MasterMixPerRxn), 1)
 
         for key in self.well_label_dict:
             label_list = self.well_label_dict[key]
@@ -544,9 +544,9 @@ class TemplateErrorChecking:
         # Check PCR reagent volume
         pcr_mix_required = float(self.args.PCR_Volume)*0.5*wells_used
 
-        if pcr_mix_required > float(self.args.ReagentVolume):
+        if pcr_mix_required > float(self.args.TotalReagentVolume):
             msg = "Program requires {} uL of PCR mix.  You have {} uL"\
-                .format(pcr_mix_required, self.args.ReagentVolume)
+                .format(pcr_mix_required, self.args.TotalReagentVolume)
             return msg
 
         # Check if there are enough tips
