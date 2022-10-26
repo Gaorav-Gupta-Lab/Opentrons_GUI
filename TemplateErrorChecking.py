@@ -16,7 +16,7 @@ import csv
 # import Tool_Box
 from Utilities import parse_sample_template, calculate_volumes, plate_layout
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 
 
 class TemplateErrorChecking:
@@ -435,7 +435,7 @@ class TemplateErrorChecking:
 
     def illumina_dual_indexing(self, template):
 
-        if self.args.Version != "v1.0.0":
+        if self.args.Version != "v1.0.1":
             return "{} template must be v1.0.0, you are using {}".format(template, self.args.Version)
 
         msg, reagent_labware = self.missing_parameters()
