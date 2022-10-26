@@ -230,7 +230,7 @@ def build_labware_dict(protocol, sample_parameters, slot_dict):
     return sample_reagent_labware_dict
 
 
-def calculate_volumes(args, sample_concentration, template_in_rxn, sample_name=None):
+def calculate_volumes(args, sample_concentration, template_in_rxn, sample_name=None, slot_dict=None):
     """
     Calculates volumes for dilution and distribution of sample.
     Returns a list of tuples consisting of
@@ -242,7 +242,7 @@ def calculate_volumes(args, sample_concentration, template_in_rxn, sample_name=N
     :param template_in_rxn:
     """
 
-    max_template_vol = round(float(args.PCR_Volume)-float(args.ReagentVolume), 1)
+    max_template_vol = round(float(args.PCR_Volume)-float(args.MasterMixPerRxn), 1)
     msg = ""
     # If at least 2 uL of sample is needed then no dilution is necessary
     if template_in_rxn/sample_concentration >= 2:
@@ -262,9 +262,15 @@ def calculate_volumes(args, sample_concentration, template_in_rxn, sample_name=N
             if not args.DilutionPlateSlot:
                 msg += "Dilutions are required but no Slot was defined for them."
             else:
-                msg += "{} is too concentrated for Douglass to dilute.".format(sample_name)
+                try:
+                    slot_dict[args.DilutionPlateSlot]
+                except KeyError:
+                    msg += "Dilution Labware required for Slot {}".format(args.DilutionPlateSlot)
 
             return 1, dilution - 1, diluted_sample_vol, reaction_water_vol, max_template_vol, msg
+
+    msg += "{} is too concentrated for Douglass to dilute.".format(sample_name)
+    return "", "", "", "", "", msg
 
 
 def dispensing_loop(args, loop_count, pipette, source_location, destination_location, volume, NewTip, MixReaction,
