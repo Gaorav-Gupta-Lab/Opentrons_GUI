@@ -16,7 +16,7 @@ import csv
 # import Tool_Box
 from Utilities import parse_sample_template, calculate_volumes, plate_layout
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 
 
 class TemplateErrorChecking:
@@ -43,8 +43,9 @@ class TemplateErrorChecking:
         msg = ""
         if not self.args.PCR_Volume:
             msg += "--PCR_Volume parameter is missing from template.\n"
-        if not self.args.TotalReagentVolume:
-            msg += "--TotalReagentVolume parameter is missing from template.\n"
+        if self.args.Template.strip() == "Illumina Dual Indexing":
+            if not self.args.TotalReagentVolume:
+                msg += "--TotalReagentVolume parameter is missing from template.\n"
         if not self.args.WaterResVol:
             msg += "--WaterResVol parameter is missing from template.\n"
         if not self.args.WaterResWell:
@@ -281,10 +282,10 @@ class TemplateErrorChecking:
         type template: object
         :rtype: object
         """
-        if template == " Generic PCR" and self.args.Version != "v1.0.0":
+        if template.strip() == "Generic PCR" and self.args.Version != "v1.0.1":
             return "{} template must be v1.0.0, you are using {}".format(template, self.args.Version)
-        elif template == " ddPCR" and self.args.Version != "v1.0.0":
-            return "{} template must be v1.0.0, you are using {}".format(template, self.args.Version)
+        elif template.strip() == "ddPCR" and self.args.Version != "v1.0.1":
+            return "{} template must be v1.0.1, you are using {}".format(template, self.args.Version)
 
         msg, reagent_labware = self.missing_parameters()
 
@@ -416,12 +417,13 @@ class TemplateErrorChecking:
             msg += "--ReagentSlot is not defined.\n"
         if not self.args.PCR_Volume:
             msg += "--PCR_Volume is not defined.\n"
-        if not self.args.TotalReagentVolume:
-            msg += "--TotalRegentVolume is not defined.\n"
+        if self.args.Template.strip() == "Illumina Dual Indexing":
+            if not self.args.TotalReagentVolume:
+                msg += "--TotalRegentVolume is not defined.\n"
+            if not self.args.DNA_in_Reaction:
+                msg += "--DNA_in_Reaction is not defined"
         if not self.args.WaterResVol:
             msg += "--WaterResVol is not defined"
-        if self.args.Template == " Illumina Dual Indexing" and not self.args.DNA_in_Reaction:
-            msg += "--DNA_in_Reaction is not defined"
 
         if self.args.ReagentSlot:
             try:
@@ -433,7 +435,7 @@ class TemplateErrorChecking:
 
     def illumina_dual_indexing(self, template):
 
-        if self.args.Version != "v1.0.0":
+        if self.args.Version != "v1.0.1":
             return "{} template must be v1.0.0, you are using {}".format(template, self.args.Version)
 
         msg, reagent_labware = self.missing_parameters()
@@ -613,6 +615,12 @@ class TemplateErrorChecking:
         return error_state
 
     def pcr_sample_processing(self, used_wells, indexing_rxn=False):
+        """
+        Only used in dual indexing.
+        :param used_wells:
+        :param indexing_rxn:
+        :return:
+        """
         sample_parameters = self.sample_dictionary
         pcr_mix_required = float(self.args.PCR_Volume) * 0.5
         indexing_tips = 0
@@ -644,9 +652,13 @@ class TemplateErrorChecking:
             water_vol = (float(self.args.PCR_Volume)*0.5)-sample_vol
 
             if sample_vol <= 1.1 and not getattr(self.args, "DilutionPlateSlot"):
-                msg = "Sample {} requires dilution but no --DilutionPlateSlot given."\
+                msg += "Sample {} requires dilution but no --DilutionPlateSlot given.\n"\
                     .format(sample_parameters[sample_key][2])
 
+            if not self.labware_slot_definitions[self.args.DilutionPlateSlot]:
+                msg += "Slot {} requires Labware for dilutions".format(self.args.DilutionPlateSlot)
+
+            if msg:
                 return 0, 0, True, msg
 
             # Check sample concentration.  At the first low concentration sample return a message.
@@ -755,12 +767,14 @@ class TemplateErrorChecking:
             if msg:
                 return "", "", "", "", "", msg
 
-            msg = self.sample_concentration_check(template_in_rxn, sample_concentration, sample_name)
+            msg = \
+                self.sample_concentration_check(template_in_rxn, sample_concentration, sample_name)
             if msg:
                 return "", "", "", "", "", msg
 
             sample_vol, diluent_vol, diluted_sample_vol, reaction_water_vol, max_template_vol, msg = \
-                calculate_volumes(self.args, sample_concentration, template_in_rxn, sample_name)
+                calculate_volumes(self.args, sample_concentration, template_in_rxn, sample_name,
+                                  self.slot_dict)
 
             if msg:
                 return "", "", "", "", "", msg

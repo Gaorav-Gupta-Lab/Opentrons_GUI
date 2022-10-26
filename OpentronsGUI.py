@@ -7,7 +7,7 @@ Lineberger Comprehensive Cancer Center
 450 West Drive
 Chapel Hill, NC  27599-7295
 
-Copyright 2021
+Copyright 2022
 """
 import datetime
 import io
@@ -26,7 +26,7 @@ from scp import SCPClient
 # import Tool_Box
 
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 # pyside2-uic MainWindow.ui -o UI_MainWindow.py
 
 
