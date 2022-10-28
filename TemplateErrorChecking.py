@@ -16,7 +16,7 @@ import csv
 # import Tool_Box
 from Utilities import parse_sample_template, calculate_volumes, plate_layout
 
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 
 
 class TemplateErrorChecking:
@@ -567,7 +567,7 @@ class TemplateErrorChecking:
             "opentrons_96_tiprack_10ul", "opentrons_96_tiprack_20ul", "opentrons_96_tiprack_300ul",
             "vwrscrewcapcentrifugetube5ml_15_tuberack_5000ul", "screwcap_24_tuberack_500ul",
             "opentrons_24_tuberack_generic_2ml_screwcap", "opentrons_96_filtertiprack_20ul",
-            "opentrons_96_filtertiprack_20ul"]
+            "opentrons_96_filtertiprack_20ul", "8_well_strip_dilution_tubes"]
 
         return labware_list
 
