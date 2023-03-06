@@ -16,7 +16,7 @@ import csv
 # import Tool_Box
 from Utilities import parse_sample_template, calculate_volumes, plate_layout
 
-__version__ = "1.0.3"
+__version__ = "1.0.4"
 
 
 class TemplateErrorChecking:
@@ -282,10 +282,10 @@ class TemplateErrorChecking:
         type template: object
         :rtype: object
         """
-        if template.strip() == "Generic PCR" and self.args.Version != "v1.0.1":
-            return "{} template must be v1.0.0, you are using {}".format(template, self.args.Version)
-        elif template.strip() == "ddPCR" and self.args.Version != "v1.0.1":
-            return "{} template must be v1.0.1, you are using {}".format(template, self.args.Version)
+        if template.strip() == "Generic PCR" and self.args.Version != "v1.1.0":
+            return "{} template must be v1.1.0, you are using {}".format(template, self.args.Version)
+        elif template.strip() == "ddPCR" and self.args.Version != "v1.1.0":
+            return "{} template must be v1.1.0, you are using {}".format(template, self.args.Version)
 
         msg, reagent_labware = self.missing_parameters()
 
@@ -435,8 +435,8 @@ class TemplateErrorChecking:
 
     def illumina_dual_indexing(self, template):
 
-        if self.args.Version != "v1.0.1":
-            return "{} template must be v1.0.0, you are using {}".format(template, self.args.Version)
+        if self.args.Version != "v1.1.0":
+            return "{} template must be v1.1.0, you are using {}".format(template, self.args.Version)
 
         msg, reagent_labware = self.missing_parameters()
 
@@ -564,10 +564,10 @@ class TemplateErrorChecking:
         """
         labware_list = [
             "vwrmicrocentrifugetube1.5ml_24_tuberack_1500ul", "stacked_96_well", "8_well_strip_tubes_200ul",
-            "opentrons_96_tiprack_10ul", "opentrons_96_tiprack_20ul", "opentrons_96_tiprack_300ul",
+            "opentrons_96_tiprack_10ul", "opentrons_96_filtertiprack_20ul", "opentrons_96_tiprack_300ul",
             "vwrscrewcapcentrifugetube5ml_15_tuberack_5000ul", "screwcap_24_tuberack_500ul",
-            "opentrons_24_tuberack_generic_2ml_screwcap", "opentrons_96_filtertiprack_20ul",
-            "opentrons_96_filtertiprack_20ul", "8_well_strip_dilution_tubes"]
+            "opentrons_24_tuberack_generic_2ml_screwcap", "biorad_ddpcr_96_wellplate_100ul",
+            "bigwell_96_tuberack_200ul_dilution_tube"]
 
         return labware_list
 
