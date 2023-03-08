@@ -280,8 +280,11 @@ class TemplateErrorChecking:
         """
         Test ddPCR and Generic PCR templates.
         type template: object
+        :param template:
+        :return:
         :rtype: object
         """
+        # Make sure user has provided the correct template version.
         if template.strip() == "Generic PCR" and self.args.Version != "v1.1.0":
             return "{} template must be v1.1.0, you are using {}".format(template, self.args.Version)
         elif template.strip() == "ddPCR" and self.args.Version != "v1.1.0":
