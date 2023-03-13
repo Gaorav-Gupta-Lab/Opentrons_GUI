@@ -7,7 +7,7 @@ Lineberger Comprehensive Cancer Center
 450 West Drive
 Chapel Hill, NC  27599-7295
 
-Copyright 2022
+Copyright 2023
 """
 import datetime
 import io
@@ -26,7 +26,7 @@ from scp import SCPClient
 # import Tool_Box
 
 
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 # pyside2-uic MainWindow.ui -o UI_MainWindow.py
 
 
@@ -265,7 +265,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.run_simulation_output.insertPlainText("\n")
         self.success_report("Simulations were successful.", "Simulation Module")
         self.transfer_tsv_file()
-        os.remove(self.temp_tsv_path)
+        # os.remove(self.temp_tsv_path)
 
     def simulate_program(self):
         """
