@@ -570,7 +570,7 @@ class TemplateErrorChecking:
             "opentrons_96_tiprack_10ul", "opentrons_96_filtertiprack_20ul", "opentrons_96_tiprack_300ul",
             "vwrscrewcapcentrifugetube5ml_15_tuberack_5000ul", "screwcap_24_tuberack_500ul",
             "opentrons_24_tuberack_generic_2ml_screwcap", "biorad_ddpcr_96_wellplate_100ul",
-            "bigwell_96_tuberack_200ul_dilution_tube"]
+            "bigwell_96_tuberack_200ul_dilution_tube", "biorad_hardshell_96_wellplate_150ul"]
 
         return labware_list
 
