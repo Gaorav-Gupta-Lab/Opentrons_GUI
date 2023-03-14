@@ -16,7 +16,7 @@ import csv
 # import Tool_Box
 from Utilities import parse_sample_template, calculate_volumes, plate_layout
 
-__version__ = "1.0.4"
+__version__ = "1.0.5"
 
 
 class TemplateErrorChecking:
@@ -653,12 +653,13 @@ class TemplateErrorChecking:
                 sample_concentration = float(sample_parameters[sample_key][3])
             sample_vol = round(template_required/sample_concentration, 2)
             water_vol = (float(self.args.PCR_Volume)*0.5)-sample_vol
+            dilution_required = False
 
             if sample_vol <= 1.1 and not getattr(self.args, "DilutionPlateSlot"):
                 msg += "Sample {} requires dilution but no --DilutionPlateSlot given.\n"\
                     .format(sample_parameters[sample_key][2])
 
-            if not self.labware_slot_definitions[self.args.DilutionPlateSlot]:
+            if dilution_required and not self.labware_slot_definitions[self.args.DilutionPlateSlot]:
                 msg += "Slot {} requires Labware for dilutions".format(self.args.DilutionPlateSlot)
 
             if msg:
