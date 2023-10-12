@@ -5,33 +5,44 @@ University of North Carolina at Chapel Hill
 450 West Drive
 Chapel Hill, NC  27599
 
-@Copyright 2022
+@Copyright 2023
 """
 
 import sys
 from distutils import log
 from collections import defaultdict
-from types import SimpleNamespace
-import csv
-# import Tool_Box
+# from types import SimpleNamespace
+# import csv
+# import Tool_Box as ToolBox
 from Utilities import parse_sample_template, calculate_volumes, plate_layout
 
-__version__ = "1.0.5"
+__version__ = "1.2.0"
 
 
 class TemplateErrorChecking:
     def __init__(self, input_file):
         self.stdout = sys.stdout
         self.sample_dictionary, self.args = parse_sample_template(input_file)
-        self.pipette_info_dict = {"p10_multi": "opentrons_96_tiprack_10ul",
-                                  "p10_single": "opentrons_96_tiprack_10ul",
-                                  "p20_single_gen2": ["opentrons_96_tiprack_20ul", "opentrons_96_filtertiprack_20ul"],
-                                  "p300_single_gen2": ["opentrons_96_tiprack_300ul", "opentrons_96_filtertiprack_300ul"]
-                                  }
+        self.pipette_info_dict = {
+            "p10_multi": "opentrons_96_tiprack_10ul", "p10_single": "opentrons_96_tiprack_10ul",
+            "p20_single_gen2": ["opentrons_96_tiprack_20ul", "opentrons_96_filtertiprack_20ul"],
+            "p300_single_gen2": ["opentrons_96_tiprack_300ul", "opentrons_96_filtertiprack_300ul"]
+            }
         self.slot_dict = None
         self.left_tip_boxes = []
         self.right_tip_boxes = []
         self.max_template_vol = None
+
+        self.labware_slot_definitions = [
+            "vwrmicrocentrifugetube1.5ml_24_tuberack_1500ul", "stacked_96_well", "8_well_strip_tubes_200ul",
+            "opentrons_96_tiprack_10ul", "opentrons_96_filtertiprack_20ul", "opentrons_96_tiprack_300ul",
+            "vwrscrewcapcentrifugetube5ml_15_tuberack_5000ul", "screwcap_24_tuberack_500ul",
+            "opentrons_24_tuberack_generic_2ml_screwcap", "biorad_ddpcr_96_wellplate_100ul",
+            "bigwell_96_tuberack_200ul_dilution_tube", "biorad_hardshell_96_wellplate_150ul"]
+
+        self.tip_boxes = ["opentrons_96_tiprack_20ul", "opentrons_96_filtertiprack_20ul", "opentrons_96_tiprack_300ul",
+                          "opentrons_96_filtertiprack_300ul"]
+
         self.well_label_dict = self.well_labels()
 
     def parameter_checks(self):
@@ -42,64 +53,30 @@ class TemplateErrorChecking:
 
         msg = ""
         if not self.args.PCR_Volume:
-            msg += "--PCR_Volume parameter is missing from template.\n"
+            msg += "--PCR_Volume is not defined.\n"
         if self.args.Template.strip() == "Illumina Dual Indexing":
             if not self.args.TotalReagentVolume:
-                msg += "--TotalReagentVolume parameter is missing from template.\n"
+                msg += "--TotalReagentVolume is not defined.\n"
+            if not self.args.DNA_in_Reaction:
+                msg += "--DNA_in_Reaction is not defined"
         if not self.args.WaterResVol:
-            msg += "--WaterResVol parameter is missing from template.\n"
+            msg += "--WaterResVol is not defined.\n"
         if not self.args.WaterResWell:
-            msg += "--WaterResWell parameter is not defined in template.\n"
+            msg += "--WaterResWell is not defined.\n"
         if not self.args.ReagentSlot:
-            msg += "--ReagentSlot parameter is not defined in template.\n"
+            msg += "--ReagentSlot is not defined.\n"
         if not self.args.PCR_PlateSlot:
-            msg += "--PCR_PlateSlot parameter is not defined in template.\n"
+            msg += "--PCR_PlateSlot is not defined.\n"
+        if not self.args.BottomOffset:
+            msg += "--BottomOffset is not defined.\n"
+        if not self.args.LeftPipetteFirstTip:
+            msg += "--LeftPipetteFirstTip is not defined.\n"
+        if not self.args.RightPipetteFirstTip:
+            msg += "--RightPipetteFirstTip is not defined.\n"
+        if not self.args.User:
+            msg += "--User parameter is missing from template.\n"
 
         return msg
-
-    @staticmethod
-    def parse_sample_file(input_file):
-        """
-        Parse TSV file
-        :param input_file:
-        :return:
-        """
-        line_num = 0
-        options_dictionary = defaultdict(str)
-        sample_dictionary = defaultdict(list)
-        index_file = list(csv.reader(open(input_file), delimiter='\t'))
-
-        for line in index_file:
-            # Get the program linked to the template file.  Data should always be the first cell of line one.
-            if line_num == 0:
-                options_dictionary["Program"] = line[0]
-
-            line_num += 1
-            col_count = len(line)
-            tmp_line = []
-            sample_key = ""
-            if col_count > 0 and "#" not in line[0] and len(line[0].split("#")[0]) > 0:
-                # Skip any lines that are blank or comments.
-
-                for i in range(7):
-                    try:
-                        line[i] = line[i].split("#")[0]  # Strip out end of line comments and white space.
-                    except IndexError:
-                        continue
-
-                    if i == 0 and "--" in line[0]:
-                        key = line[0].strip('--')
-                        key_value = line[1]
-                        if "Target_" in key or "PositiveControl_" in key:
-                            key_value = (line[1], line[2], line[3])
-                        options_dictionary[key] = key_value
-                    elif "--" not in line[0] and int(line[0]) < 12:
-                        sample_key = line[0], line[1]
-                        tmp_line.append(line[i])
-                if sample_key:
-                    sample_dictionary[sample_key] = tmp_line
-
-        return sample_dictionary, SimpleNamespace(**options_dictionary)
 
     def slot_error_check(self):
         """
@@ -107,19 +84,26 @@ class TemplateErrorChecking:
         tip box in the defined reagent slot.
         :return:
         """
+        print("Checking Labware Definitions in Slots")
         slot_error = ""
         slot_list = \
             ["Slot1", "Slot2", "Slot3", "Slot4", "Slot5", "Slot6", "Slot7", "Slot8", "Slot9", "Slot10", "Slot11"]
 
         slot_dict = {}
-        print("Checking Labware Definitions in Slots")
-
         for i in range(len(slot_list)):
             labware = getattr(self.args, "{}".format(slot_list[i]))
 
             if labware and labware not in self.labware_slot_definitions:
-                msg = "ERROR: Slot {} labware definition not in dictionary.\nCheck spelling.".format(slot_list[i])
+                msg = ("ERROR: Slot {}, labware definition {} not in dictionary.\nCheck spelling."
+                       .format(i, slot_list[i]))
                 slot_error = msg
+
+            elif labware and i+1 == int(self.args.ReagentSlot) and labware in self.tip_boxes:
+                slot_error = "ERROR: --ReagentSlot contains a tip box."
+
+            elif labware and i+1 == int(self.args.PCR_PlateSlot) and labware in self.tip_boxes:
+                slot_error = "ERROR: --PCR_PlateSlot contains a tip box."
+
             elif labware:
                 slot_dict[str(i + 1)] = labware
 
@@ -129,6 +113,11 @@ class TemplateErrorChecking:
             print("\tLabware definitions in slots passed")
 
         self.slot_dict = slot_dict
+
+        try:
+            self.slot_dict[self.args.PCR_PlateSlot]
+        except KeyError:
+            return "--PCR_PlateSlot {} has no labware defined".format(self.args.PCR_PlateSlot)
 
         return slot_error
 
@@ -265,11 +254,11 @@ class TemplateErrorChecking:
                     if not target[0]:
                         msg += "{} Well definition is missing".format(target[i])
                     if target[0] == self.args.WaterResWell.upper():
-                        msg += "{} Well definition is the same as the --WaterResWell".format(target[i])
+                        msg += "{} Target Well definition is the same as the --WaterResWell".format(target[i])
                     if not target[1]:
                         msg += "{} Target Name definition is missing".format(target[i])
                     if not target[2]:
-                        msg += "{} Volume definition is missing".format(target[i])
+                        msg += "{} Target Volume definition is missing".format(target[i])
 
         if no_target_count == 10:
             msg = "No targets defined"
@@ -290,10 +279,11 @@ class TemplateErrorChecking:
         elif template.strip() == "ddPCR" and self.args.Version != "v1.1.0":
             return "{} template must be v1.1.0, you are using {}".format(template, self.args.Version)
 
-        msg, reagent_labware = self.missing_parameters()
-
-        if msg:
-            return msg
+        if self.args.ReagentSlot:
+            try:
+                reagent_labware = self.slot_dict[self.args.ReagentSlot]
+            except KeyError:
+                return "--ReagentSlot {} has no labware defined".format(self.args.ReagentSlot)
 
         self.max_template_vol = round(float(self.args.PCR_Volume) - float(self.args.MasterMixPerRxn), 1)
         msg = self.slot_usage_error_check(reagent_labware, type_check="Reagent")
@@ -319,9 +309,11 @@ class TemplateErrorChecking:
         for well in water_well_dict:
             water_vol = water_well_dict[well]
             if water_vol <= 20:
-                p20_tips_used += 1
+                # p20_tips_used += 1
+                p20_tips_used = 1
             else:
-                p300_tips_used += 1
+                # p300_tips_used += 1
+                p300_tips_used = 1
             water_aspirated += water_vol
 
         target_well_count = 0
@@ -454,11 +446,6 @@ class TemplateErrorChecking:
         except KeyError:
             msg += "--IndexPrimerSlot {} has no labware defined".format(self.args.IndexPrimerSlot)
 
-        try:
-            self.slot_dict[self.args.PCR_PlateSlot]
-        except KeyError:
-            msg += "--PCR_PlateSlot {} has no labware defined".format(self.args.PCR_PlateSlot)
-
         if msg:
             return msg
 
@@ -483,8 +470,7 @@ class TemplateErrorChecking:
                     return msg
 
         # Process Sample data;
-        source_test = []
-        dest_test = []
+        source_test = {}
         index_dict = {}
         sample_dest_slot = self.args.PCR_PlateSlot
 
@@ -498,42 +484,41 @@ class TemplateErrorChecking:
             sample_index = self.sample_dictionary[sample_key][2]
             sample_name = self.sample_dictionary[sample_key][3]
             sample_dest_well = self.sample_dictionary[sample_key][5]
+
             if not sample_source_well:
-                msg += "Sample Source Well is not defined for sample {}".format(self.sample_dictionary[sample_key][3])
+                msg += "Sample Source Well is not defined for sample {}".format(sample_name)
             if not sample_index:
-                msg += "Sample Index is not defined for sample {}".format(self.sample_dictionary[sample_key][3])
+                msg += "Sample Index is not defined for sample {}".format(sample_name)
             if not sample_name:
                 msg += "Sample Name is not defined for sample in Slot {}, Well {}"\
                     .format(sample_source_slot, sample_source_well)
             if not sample_dest_well:
-                msg += "Destination Well is not defined for sample {}".format(self.sample_dictionary[sample_key][3])
-
-            source_test.append("{}+{}".format(sample_source_slot, sample_source_well))
-            # Make sure the sample source and destination slots are not tip boxes.
-            msg += self.slot_usage_error_check(self.slot_dict[sample_source_slot], type_check=sample_name)
-            if msg:
-                return msg
-
-            msg = self.slot_usage_error_check(self.slot_dict[sample_dest_slot], type_check="{} DESTINATION"
-                                              .format(sample_name))
-            if msg:
-                return msg
+                msg += "Destination Well is not defined for sample {}".format(sample_name)
 
             if sample_index in index_dict:
-                msg = "Sample index {} used for samples {} and {}"\
+                msg += "Sample index {} used for samples {} and {}"\
                     .format(sample_index, index_dict[sample_index], sample_name)
                 return msg
             else:
                 index_dict[sample_index] = sample_name
 
-        dest_test.append("{}+{}".format(sample_dest_slot, sample_dest_well))
-        for source in source_test:
-            if source in dest_test:
-                msg = "More than one sample share the same source and/or destinations"
+            source_key = "{}+{}".format(sample_source_slot, sample_source_well)
+            if source_key in source_test:
+                msg += ("Sample {} and sample {} are both assigned Slot {}, Source Well {}"
+                        .format(source_test[source_key], sample_name, sample_source_slot, sample_source_well))
                 print("ERROR:  {}".format(msg))
                 return msg
+            else:
+                source_test[source_key] = sample_name
 
-        wells_used = len(dest_test)
+            # Make sure the sample source and destination slots are not tip boxes.
+            msg += self.slot_usage_error_check(self.slot_dict[sample_source_slot], type_check=sample_name)
+            msg += self.slot_usage_error_check(self.slot_dict[sample_dest_slot], type_check="{} DESTINATION"
+                                               .format(sample_name))
+            if msg:
+                return msg
+
+        wells_used = len(self.sample_dictionary)
         water_required, left_tips_used, right_tips_used, msg = self.pcr_sample_processing(wells_used, indexing_rxn=True)
 
         # This is our warning of samples being too dilute.
@@ -560,7 +545,7 @@ class TemplateErrorChecking:
             return msg
 
     @property
-    def labware_slot_definitions(self):
+    def labware_slot_definition(self):
         """
         Labware that we have on-hand.
         :return:
@@ -594,12 +579,15 @@ class TemplateErrorChecking:
 
         well_labels_dict = defaultdict(list)
         for labware in self.labware_slot_definitions:
+            w384 = well_list(12, 32)
             w96 = well_list(8, 12)
             w24 = well_list(4, 6)
             w15 = well_list(3, 5)
 
             if "24" in labware:
                 well_labels_dict[labware] = w24
+            elif "384" in labware:
+                well_labels_dict[labware] = w384
             elif "96" in labware or "8_well" in labware:
                 well_labels_dict[labware] = w96
             elif "_15_tuberack" in labware:
@@ -626,22 +614,23 @@ class TemplateErrorChecking:
         """
         sample_parameters = self.sample_dictionary
         pcr_mix_required = float(self.args.PCR_Volume) * 0.5
+        # Force the user to have 4 extra tips as a buffer.
+        left_tips_used = 4
+        right_tips_used = 4
+
         indexing_tips = 0
         if indexing_rxn:
             indexing_tips = used_wells*2
 
-        # Force the user to have 4 extra tips as a buffer.
-        left_tips_used = 4
-        right_tips_used = 4
         if self.args.LeftPipette == "p20_single_gen2" and pcr_mix_required <= 20:
             left_tips_used = used_wells+indexing_tips
         elif self.args.LeftPipette == "p300_single_gen2" and pcr_mix_required > 20:
-            left_tips_used = used_wells
+            left_tips_used = used_wells+indexing_tips
 
         if self.args.RightPipette == "p20_single_gen2" and pcr_mix_required <= 20:
             right_tips_used = used_wells+indexing_tips
         elif self.args.RightPipette == "p300_single_gen2" and pcr_mix_required > 20:
-            right_tips_used = used_wells
+            right_tips_used = used_wells+indexing_tips
 
         template_required = float(self.args.DNA_in_Reaction)
         water_required = 0
@@ -651,8 +640,19 @@ class TemplateErrorChecking:
                 sample_concentration = float(sample_parameters[sample_key][4])
             else:
                 sample_concentration = float(sample_parameters[sample_key][3])
+
             sample_vol = round(template_required/sample_concentration, 2)
+
+            # Check sample concentration.  At the first low concentration sample return a message.
+            msg = self.sample_concentration_check(sample_vol, sample_concentration, sample_parameters[sample_key][2])
+            if msg:
+                return 0, 0, False, msg
+
             water_vol = (float(self.args.PCR_Volume)*0.5)-sample_vol
+            if indexing_rxn:
+                'Indexing reactions use 2 uL of each indexing primer'
+                water_vol = water_vol - 4
+
             dilution_required = False
 
             if sample_vol <= 1.1 and not getattr(self.args, "DilutionPlateSlot"):
@@ -664,11 +664,6 @@ class TemplateErrorChecking:
 
             if msg:
                 return 0, 0, True, msg
-
-            # Check sample concentration.  At the first low concentration sample return a message.
-            msg = self.sample_concentration_check(sample_vol, sample_concentration, sample_parameters[sample_key][2])
-            if msg:
-                return 0, 0, False, msg
 
             water_required += water_vol
             left_tips_used, right_tips_used = self.tip_counter(left_tips_used, right_tips_used, water_vol)
@@ -719,7 +714,6 @@ class TemplateErrorChecking:
 
         sample_parameters = self.sample_dictionary
 
-        # There is a single no template control for every target that uses max volume.
         plate_layout_by_column, layout_data = plate_layout(self.slot_dict[self.args.PCR_PlateSlot])
         sample_data_dict = defaultdict(list)
         target_well_dict = defaultdict(list)
@@ -795,9 +789,8 @@ class TemplateErrorChecking:
 
             sample_data_dict[sample_key] = [sample_vol, diluent_vol, diluted_sample_vol, sample_wells]
 
-        # Define our positive control wells for the targets.
-        # FixMe: Confirm this block actually does something that is needed
-        for target in target_well_dict:
+        # Define our no template control wells for the targets.
+        for i in range(len(target_well_dict)):
             well = plate_layout_by_column[dest_well_count]
             used_wells.append(well)
             water_well_dict[well] = self.max_template_vol
