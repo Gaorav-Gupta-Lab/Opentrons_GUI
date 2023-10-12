@@ -26,7 +26,7 @@ from scp import SCPClient
 # import Tool_Box
 
 
-__version__ = "1.0.3"
+__version__ = "1.1.0"
 # pyside2-uic MainWindow.ui -o UI_MainWindow.py
 
 
@@ -48,7 +48,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.tsv_file_select_btn.pressed.connect(self.select_file)
         self.closeGUI_btn.pressed.connect(self.exit_gui)
         self.simulate_run_btn.pressed.connect(self.simulate_run)
-        self.select_program_combobx.addItems(["ddPCR", "Generic PCR", "Illumina_Dual_Indexing"])
+        self.select_program_combobx.addItems(["ddPCR", "Generic PCR", "Illumina_Dual_Indexing", "qPCR"])
         self.select_program_combobx.currentTextChanged.connect(self.program_name)
         self.cancel_run_btn.pressed.connect(self.cancel_run)
         self.run_ot2.pressed.connect(self.run_program)
@@ -158,7 +158,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         # Initialize scp and transfer the files to the robot.
         scp = SCPClient(self.ssh_client.get_transport())
-        # TSF file transfer
+        # TSV file transfer
         scp.put(files=self.path_to_tsv, remote_path="{}{}".format(self.server_path, self.server_tsv_file),
                 preserve_times=True)
 
@@ -198,11 +198,17 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         if not self.selected_program:
             self.warning_report("Please Select Program for Simulation from dropdown list first.")
+            return
 
-        # Redirect stdout and stderr so they can be displayed in the GUI
+        # Redirect stdout and stderr allowing them to be displayed in the GUI
         f = io.StringIO()
 
-        template_error_check = TemplateErrorChecking(self.path_to_tsv)
+        if self.path_to_tsv:
+            template_error_check = TemplateErrorChecking(self.path_to_tsv)
+        else:
+            self.warning_report("TSV File Not Selected.")
+            return
+
         '''
         # Debugging code block
         slot_error = template_error_check.slot_error_check()
@@ -241,7 +247,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 error_msg = template_error_check.illumina_dual_indexing(self.selected_program)
 
             else:
-                error_msg = "Somehow you have selected a program that does not exist.\nConsult the code admin."
+                error_msg = "Program {} is not yet implemented.\nConsult the code admin."
 
             if error_msg:
                 self.error_report(error_msg)
@@ -256,15 +262,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.path_to_program = "C:{0}Opentrons_Programs{0}Illumina_Dual_Indexing.py".format(os.sep)
 
         elif self.selected_program == "ddPCR":
-            # self.path_to_program = "C:{0}Opentrons_Programs{0}ddPCR.py".format(os.sep)
             self.path_to_program = "C:{0}Opentrons_Programs{0}PCR.py".format(os.sep)
 
         self.run_simulation_output.insertPlainText('Begin Program Simulation.\n'.format(f.getvalue()))
         self.simulate_program()
-
-        self.run_simulation_output.insertPlainText("\n")
-        self.success_report("Simulations were successful.", "Simulation Module")
-        self.transfer_tsv_file()
+        if not self.critical_error:
+            self.run_simulation_output.insertPlainText("\n")
+            self.success_report("Simulations were successful.", "Simulation Module")
+            self.transfer_tsv_file()
         # os.remove(self.temp_tsv_path)
 
     def simulate_program(self):
@@ -272,7 +277,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         This will run an Opentrons simulation on the program.
         """
 
-        # If we have a critical error then don't do anything else.
+        # If we have a critical error then don't attempt anything else.
         if self.critical_error:
             return
 
@@ -285,15 +290,20 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.info_report('If you do not get a "Success" notice then the simulation failed.\nSee the terminal window '
                          'for the reason')
+        try:
+            protocol_file = open(self.path_to_program)
 
-        protocol_file = open(self.path_to_program)
-        labware_location = "{}{}custom_labware".format(os.path.dirname(self.path_to_program), os.sep)
-        run_log, __bundle__ = simulate(protocol_file, custom_labware_paths=[labware_location], propagate_logs=False)
+        except FileNotFoundError:
+            self.critical_error = True
+            self.error_report("Program file not found or not selected.")
+            return
 
         # Write the simulation steps to a file
+        labware_location = "{}{}custom_labware".format(os.path.dirname(self.path_to_program), os.sep)
+        run_log, __bundle__ = simulate(protocol_file, custom_labware_paths=[labware_location], propagate_logs=False)
         simulation_date = datetime.datetime.today().strftime("%a %b %d %H:%M %Y")
         outfile = open("C:{0}Users{0}{1}{0}Documents{0}{2}_Simulation.txt"
-                       .format(os.sep, os.getlogin(), self.selected_program), 'w', encoding="UTF-16")
+                        .format(os.sep, os.getlogin(), self.selected_program), 'w', encoding="UTF-16")
         step_number = 1
         t = format_runlog(run_log).split("\n")
         outstring = "Opentrons OT-2 Steps.\nDate:  {}\nProgram File: {}\nTSV File:  {}\n\nStep\tCommand\n"\
