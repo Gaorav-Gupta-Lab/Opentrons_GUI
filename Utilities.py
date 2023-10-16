@@ -335,3 +335,30 @@ def dispensing_loop(args, loop_count, pipette, source_location, destination_loca
         pipette.drop_tip()
 
     return pipette
+
+
+def distribute_reagents(pipette, source_well, destination_wells, dispense_vol):
+    """
+    Dispense master mix using the distribute function.
+    @param pipette:
+    @param source_well:
+    @param destination_wells:
+    @param dispense_vol:
+    """
+    p20_default_rate = 7.56
+    p300_default_rate = 92.86
+
+    if "P300 Single-Channel GEN2" in str(pipette):
+        default_rate = p300_default_rate
+    elif "P20 Single-Channel GEN2" in str(pipette):
+        default_rate = p20_default_rate
+
+    pipette.flow_rate.aspirate = 30
+    pipette.flow_rate.dispense = 10
+
+    pipette.distribute(volume=dispense_vol, source=source_well, dest=destination_wells,
+                       touch_tip=True, blow_out=True, disposal_volume=10, blowout_location='source well')
+
+    pipette.flow_rate.aspirate = default_rate
+    pipette.flow_rate.dispense = default_rate
+
