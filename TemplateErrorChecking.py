@@ -10,6 +10,7 @@ Chapel Hill, NC  27599
 
 import sys
 from distutils import log
+from packaging.version import Version
 from collections import defaultdict
 # from types import SimpleNamespace
 # import csv
@@ -274,11 +275,18 @@ class TemplateErrorChecking:
         :rtype: object
         """
         # Make sure user has provided the correct template version.
+        if "ddPCR" in self.args.Template and Version(self.args.Version) < Version("2.0.0"):
+            return ("{} Parameter Template Version is {}.\nTemplate Version Must Be >= 2.0.0.\n"
+                    .format(template, self.args.Version))
+        elif "Generic PCR" in self.args.Template and Version(self.args.Version) < Version("2.0.0"):
+            return ("{} Parameter Template Version is {}.\nTemplate Version Must Be >= 2.0.0.\n"
+                    .format(template, self.args.Version))
+        """
         if template.strip() == "Generic PCR" and self.args.Version != "v1.1.0":
             return "{} template must be v1.1.0, you are using {}".format(template, self.args.Version)
         elif template.strip() == "ddPCR" and self.args.Version != "v1.1.0":
             return "{} template must be v1.1.0, you are using {}".format(template, self.args.Version)
-
+        """
         if self.args.ReagentSlot:
             try:
                 reagent_labware = self.slot_dict[self.args.ReagentSlot]
@@ -319,7 +327,7 @@ class TemplateErrorChecking:
         target_well_count = 0
         for target in target_well_dict:
             # Force user to include extra reagent in tube to account for pipetting errors
-            reagent_used = float(self.args.MasterMixPerRxn) * 1.5
+            reagent_used = float(self.args.MasterMixPerRxn) * 1.25
 
             # Get information about the master mix
             target_info = getattr(self.args, "Target_{}".format(target))

@@ -2,10 +2,10 @@
 import subprocess
 import sys
 import os
-from PySide2.QtWidgets import QApplication, QWidget, QMainWindow, QPushButton, QLabel, QLineEdit, QFileDialog
-from PySide2 import QtWidgets
-from PySide2.QtCore import QFile, Qt, QObject
-from PySide2.QtUiTools import QUiLoader, loadUiType
+from PySide6.QtWidgets import QApplication, QWidget, QMainWindow, QPushButton, QLabel, QLineEdit, QFileDialog
+from PySide6 import QtWidgets
+from PySide6.QtCore import QFile, Qt, QObject
+from PySide6.QtUiTools import QUiLoader, loadUiType
 import Tool_Box
 
 
@@ -66,4 +66,4 @@ if __name__ == "__main__":
     app.setStyle("windows")
     main_window = MainWindow()  # This is our main window
     main_window.show()
-    sys.exit(app.exec_())  # shut it all down
+    sys.exit(app.exec())  # shut it all down
