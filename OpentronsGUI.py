@@ -7,7 +7,7 @@ Lineberger Comprehensive Cancer Center
 450 West Drive
 Chapel Hill, NC  27599-7295
 
-Copyright 2023
+Copyright 2024
 """
 import datetime
 import io
@@ -15,18 +15,20 @@ import shutil
 import sys
 import os
 import socket
+
+import opentrons.simulate
 from TemplateErrorChecking import TemplateErrorChecking
 from opentrons.simulate import simulate, format_runlog
 from UI_MainWindow import Ui_MainWindow
-from PySide2 import QtWidgets, QtGui, QtCore
-from PySide2.QtWidgets import QApplication
+from PySide6 import QtWidgets, QtGui, QtCore
+from PySide6.QtWidgets import QApplication
 from paramiko import SSHClient, AutoAddPolicy
 from contextlib import redirect_stdout, suppress
 from scp import SCPClient
-# import Tool_Box
+import Tool_Box
 
 
-__version__ = "1.1.0"
+__version__ = "2.0.0"
 # pyside2-uic MainWindow.ui -o UI_MainWindow.py
 
 
@@ -91,14 +93,17 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.selected_program = s
 
     def tr(self, text, **kwargs):
-        return QtCore.QObject.tr(self, text)
+        return QtCore.QObject.tr(text, **kwargs)
 
     def select_file(self):
         self.path_to_tsv, _ = \
             QtWidgets.QFileDialog.getOpenFileName(self, self.tr("File Select"),
                                                   self.tr("C:{0}Users{0}{1}{0}Documents{0}".
                                                           format(os.sep, os.getlogin())))
-        if self.path_to_tsv:
+
+        if  os.path.basename(self.path_to_tsv) == "TempTSV.tsv":
+            self.warning_report("Cannot use file name TempTSV.tsv.")
+        elif self.path_to_tsv:
             shutil.copyfile(self.path_to_tsv, self.temp_tsv_path)
         else:
             self.warning_report("TSV File Not Selected.")
@@ -255,7 +260,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.run_simulation_output.insertPlainText('{}'.format(f.getvalue()))
         if self.selected_program == "Generic PCR":
-            # self.path_to_program = "C:{0}Opentrons_Programs{0}Generic_PCR.py".format(os.sep)
             self.path_to_program = "C:{0}Opentrons_Programs{0}PCR.py".format(os.sep)
 
         elif self.selected_program == "Illumina_Dual_Indexing":
@@ -299,7 +303,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             return
 
         # Write the simulation steps to a file
-        labware_location = "{}{}custom_labware".format(os.path.dirname(self.path_to_program), os.sep)
+        labware_location = "{}/custom_labware".format(os.path.dirname(self.path_to_program), os.sep)
+
+        opentrons.simulate.simulate(protocol_file,custom_labware_paths=[labware_location], propagate_logs=False)
+
         run_log, __bundle__ = simulate(protocol_file, custom_labware_paths=[labware_location], propagate_logs=False)
         simulation_date = datetime.datetime.today().strftime("%a %b %d %H:%M %Y")
         outfile = open("C:{0}Users{0}{1}{0}Documents{0}{2}_Simulation.txt"
@@ -338,15 +345,18 @@ def center_window(central_widget):
     central_widget.setWindowTitle("Opentrons Python Interface")
     w_scale = 0.55
     h_scale = 0.85
+
     if screen_geometry.width() > 2000:
-        w_scale = 0.27
+        w_scale = 0.40
     elif screen_geometry.width() < 1500:
         w_scale = 0.79
     if screen_geometry.height() > 1200:
-        h_scale = 0.45
+        h_scale = 0.60
     # print(screen_geometry.width(), screen_geometry.height())
+
     central_widget.resize(screen_geometry.width()*w_scale, screen_geometry.height()*h_scale)
-    central_widget.setGeometry(QtWidgets.QStyle.alignedRect(QtCore.Qt.LeftToRight, QtCore.Qt.AlignCenter,
+    #central_widget.setGeometry(QtWidgets.QStyle.alignedRect(QtCore.Qt.LeftToRight, QtCore.Qt.AlignCenter,
+    central_widget.setGeometry(QtWidgets.QStyle.alignedRect(QtCore.Qt.LayoutDirection.LeftToRight, QtCore.Qt.AlignCenter,
                                                             central_widget.size(), screen_geometry, ), )
 
 
@@ -356,4 +366,4 @@ if __name__ == "__main__":
     window = MainWindow()
     center_window(window)
     window.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
