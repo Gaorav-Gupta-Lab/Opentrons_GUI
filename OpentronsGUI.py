@@ -15,8 +15,7 @@ import shutil
 import sys
 import os
 import socket
-
-import opentrons.simulate
+# import opentrons.simulate
 from TemplateErrorChecking import TemplateErrorChecking
 from opentrons.simulate import simulate, format_runlog
 from UI_MainWindow import Ui_MainWindow
@@ -28,8 +27,7 @@ from scp import SCPClient
 # import Tool_Box
 
 
-__version__ = "2.0.0"
-# pyside2-uic MainWindow.ui -o UI_MainWindow.py
+__version__ = "2.1.0"
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -240,11 +238,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.error_report(pipette_error)
                 return
 
-            tip_box_error = template_error_check.tip_box_error_check()
-            if tip_box_error:
-                self.error_report(tip_box_error)
-                return
-
             if self.selected_program == "Generic PCR" or self.selected_program == "ddPCR":
                 error_msg = template_error_check.pcr_check(self.selected_program)
 
@@ -268,7 +261,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         elif self.selected_program == "ddPCR":
             self.path_to_program = "C:{0}Opentrons_Programs{0}PCR.py".format(os.sep)
 
-        self.run_simulation_output.insertPlainText('Begin Program Simulation.\n'.format(f.getvalue()))
+        # self.run_simulation_output.insertPlainText('Begin Program Simulation.\n'.format(f.getvalue()))
         self.simulate_program()
         if not self.critical_error:
             self.run_simulation_output.insertPlainText("\n")
@@ -303,10 +296,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             return
 
         # Write the simulation steps to a file
-        labware_location = "{}/custom_labware".format(os.path.dirname(self.path_to_program), os.sep)
-
-        opentrons.simulate.simulate(protocol_file,custom_labware_paths=[labware_location], propagate_logs=False)
-
+        labware_location = "{}{}custom_labware".format(os.path.dirname(self.path_to_program), os.sep)
         run_log, __bundle__ = simulate(protocol_file, custom_labware_paths=[labware_location], propagate_logs=False)
         simulation_date = datetime.datetime.today().strftime("%a %b %d %H:%M %Y")
         outfile = open("C:{0}Users{0}{1}{0}Documents{0}{2}_Simulation.txt"
@@ -341,6 +331,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
 
 def center_window(central_widget):
+    """
+    These settings are a bit empirical.  They are designed to center the window on the screen and set the size to make
+    everything readable.
+
+    :param central_widget:
+    :return:
+    """
     screen_geometry = QtGui.QGuiApplication.primaryScreen().availableGeometry()
     central_widget.setWindowTitle("Opentrons Python Interface")
     w_scale = 0.55
@@ -356,7 +353,8 @@ def center_window(central_widget):
 
     central_widget.resize(screen_geometry.width()*w_scale, screen_geometry.height()*h_scale)
     #central_widget.setGeometry(QtWidgets.QStyle.alignedRect(QtCore.Qt.LeftToRight, QtCore.Qt.AlignCenter,
-    central_widget.setGeometry(QtWidgets.QStyle.alignedRect(QtCore.Qt.LayoutDirection.LeftToRight, QtCore.Qt.AlignCenter,
+    central_widget.setGeometry(QtWidgets.QStyle.alignedRect(QtCore.Qt.LayoutDirection.LeftToRight,
+                                                            QtCore.Qt.AlignmentFlag.AlignCenter,
                                                             central_widget.size(), screen_geometry, ), )
 
 

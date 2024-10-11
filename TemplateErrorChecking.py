@@ -5,11 +5,10 @@ University of North Carolina at Chapel Hill
 450 West Drive
 Chapel Hill, NC  27599
 
-@Copyright 2023
+@Copyright 2024
 """
 
 import sys
-from distutils import log
 from packaging.version import Version
 from collections import defaultdict
 # from types import SimpleNamespace
@@ -17,7 +16,7 @@ from collections import defaultdict
 # import Tool_Box as ToolBox
 from Utilities import parse_sample_template, calculate_volumes, plate_layout
 
-__version__ = "1.2.0"
+__version__ = "2.1.0"
 
 
 class TemplateErrorChecking:
@@ -25,7 +24,6 @@ class TemplateErrorChecking:
         self.stdout = sys.stdout
         self.sample_dictionary, self.args = parse_sample_template(input_file)
         self.pipette_info_dict = {
-            "p10_multi": "opentrons_96_tiprack_10ul", "p10_single": "opentrons_96_tiprack_10ul",
             "p20_single_gen2": ["opentrons_96_tiprack_20ul", "opentrons_96_filtertiprack_20ul"],
             "p300_single_gen2": ["opentrons_96_tiprack_300ul", "opentrons_96_filtertiprack_300ul"]
             }
@@ -75,7 +73,7 @@ class TemplateErrorChecking:
         if not self.args.RightPipetteFirstTip:
             msg += "--RightPipetteFirstTip is not defined.\n"
         if not self.args.User:
-            msg += "--User parameter is missing from template.\n"
+            msg += "--User name is missing from template.\n"
 
         return msg
 
@@ -95,9 +93,8 @@ class TemplateErrorChecking:
             labware = getattr(self.args, "{}".format(slot_list[i]))
 
             if labware and labware not in self.labware_slot_definitions:
-                msg = ("ERROR: Slot {}, labware definition {} not in dictionary.\nCheck spelling."
-                       .format(i, slot_list[i]))
-                slot_error = msg
+                slot_error = ("ERROR: Slot {}, labware definition \"{}\" is not valid.\nCheck spelling."
+                       .format(i+1, labware))
 
             elif labware and i+1 == int(self.args.ReagentSlot) and labware in self.tip_boxes:
                 slot_error = "ERROR: --ReagentSlot contains a tip box."
@@ -119,7 +116,7 @@ class TemplateErrorChecking:
             self.slot_dict[self.args.PCR_PlateSlot]
         except KeyError:
             return "--PCR_PlateSlot {} has no labware defined".format(self.args.PCR_PlateSlot)
-
+        self.tip_box_error_check()
         return slot_error
 
     def pipette_error_check(self):
@@ -130,22 +127,22 @@ class TemplateErrorChecking:
         """
         msg = ""
         pipette_error = False
-        log.info("Checking Pipette Definitions")
+        print("Checking Pipette Definitions")
+
         if self.args.LeftPipette:
-            pipette_error = self.pipette_definition_error_check(pipette_error, self.args.LeftPipette, "Left Pipette")
+            if self.pipette_definition_error_check(pipette_error, self.args.LeftPipette, "Left Pipette"):
+                msg = "The Left Pipette definition {} is not valid\n".format(self.args.LeftPipette)
         if self.args.RightPipette:
-            pipette_error = self.pipette_definition_error_check(pipette_error, self.args.RightPipette, "Right Pipette")
-        if pipette_error:
-            msg = "There is an error in the one of the pipette definitions"
-            print("ERROR: {}".format(msg))
+            if self.pipette_definition_error_check(pipette_error, self.args.RightPipette, "Right Pipette"):
+                msg += "The Right Pipette definition {} is not valid\n".format(self.args.RightPipette)
+        if not msg:
+            print("\tPipette definitions passed.")
         else:
             print("\tPipette definitions passed.")
 
         return msg
 
     def tip_box_error_check(self):
-        print("Checking Pipette Tip Box Definitions")
-        msg = ""
         for slot in self.slot_dict:
             labware = self.slot_dict[slot]
             lft_pipette_labware = self.pipette_info_dict[self.args.LeftPipette]
@@ -155,14 +152,7 @@ class TemplateErrorChecking:
             elif labware in rt_pipette_labware:
                 self.right_tip_boxes.append(slot)
 
-        if len(self.left_tip_boxes) == 0 == len(self.right_tip_boxes):
-            print("ERROR:  No pipette tip boxes defined.")
-            msg = "ERROR:  No pipette tip boxes defined."
-
-        else:
-            print("\tPipette tip box definitions passed")
-
-        return msg
+        return
 
     def slot_usage_error_check(self, labware, type_check):
         """
@@ -274,6 +264,7 @@ class TemplateErrorChecking:
         :return:
         :rtype: object
         """
+
         # Make sure user has provided the correct template version.
         if "ddPCR" in self.args.Template and Version(self.args.Version) < Version("2.0.0"):
             return ("{} Parameter Template Version is {}.\nTemplate Version Must Be >= 2.0.0.\n"
@@ -281,19 +272,14 @@ class TemplateErrorChecking:
         elif "Generic PCR" in self.args.Template and Version(self.args.Version) < Version("2.0.0"):
             return ("{} Parameter Template Version is {}.\nTemplate Version Must Be >= 2.0.0.\n"
                     .format(template, self.args.Version))
-        """
-        if template.strip() == "Generic PCR" and self.args.Version != "v1.1.0":
-            return "{} template must be v1.1.0, you are using {}".format(template, self.args.Version)
-        elif template.strip() == "ddPCR" and self.args.Version != "v1.1.0":
-            return "{} template must be v1.1.0, you are using {}".format(template, self.args.Version)
-        """
+
         if self.args.ReagentSlot:
             try:
                 reagent_labware = self.slot_dict[self.args.ReagentSlot]
             except KeyError:
                 return "--ReagentSlot {} has no labware defined".format(self.args.ReagentSlot)
 
-        self.max_template_vol = round(float(self.args.PCR_Volume) - float(self.args.MasterMixPerRxn), 1)
+        self.max_template_vol = round(float(self.args.PCR_Volume) - float(self.args.MasterMixPerRxn), ndigits=1)
         msg = self.slot_usage_error_check(reagent_labware, type_check="Reagent")
 
         if msg:
@@ -315,7 +301,9 @@ class TemplateErrorChecking:
         water_aspirated = 0
 
         for well in water_well_dict:
-            water_vol = water_well_dict[well]
+            # Currently I am using distribute for the water.  That is 1 p300 tip
+            water_aspirated += water_well_dict[well]
+            """
             if water_vol <= 20:
                 # p20_tips_used += 1
                 p20_tips_used = 1
@@ -323,6 +311,7 @@ class TemplateErrorChecking:
                 # p300_tips_used += 1
                 p300_tips_used = 1
             water_aspirated += water_vol
+            """
 
         target_well_count = 0
         for target in target_well_dict:
@@ -335,22 +324,28 @@ class TemplateErrorChecking:
 
             # How much master mix per reaction?
             reagent_aspirated = float(self.args.MasterMixPerRxn)
-
             target_well_list = target_well_dict[target]
 
+            # Currently using a distribute function.
+            p300_tips_used += target_count
+            reagent_used += reagent_aspirated*len(target_well_list)
+
+            """
             # Count the number of tips required
             for well in target_well_list:
                 reagent_used += reagent_aspirated
+                
                 if reagent_aspirated <= 20:
                     p20_tips_used += 1
                 else:
                     p300_tips_used += 1
+                """
 
             # Add a reagent tips for the no template control
             if float(self.args.PCR_Volume)-reagent_aspirated <= 20:
-                p20_tips_used += 2
+                p20_tips_used += 1
             else:
-                p300_tips_used += 2
+                p300_tips_used += 1
 
             target_well_count += len(target_well_list)
             if reagent_used >= reagent_well_vol:
@@ -467,7 +462,7 @@ class TemplateErrorChecking:
         if msg:
             return msg
 
-        self.max_template_vol = round(float(self.args.PCR_Volume) - float(self.args.MasterMixPerRxn), 1)
+        self.max_template_vol = round(float(self.args.PCR_Volume) - float(self.args.MasterMixPerRxn), ndigits=1)
 
         for key in self.well_label_dict:
             label_list = self.well_label_dict[key]
@@ -610,7 +605,7 @@ class TemplateErrorChecking:
     def pipette_definition_error_check(self, error_state, pipette, pipette_str):
         if pipette not in self.pipette_info_dict:
             error_state = True
-            print("ERROR:  {} definition not correct".format(pipette_str))
+            # print("ERROR:  {} definition not correct".format(pipette_str))
         return error_state
 
     def pcr_sample_processing(self, used_wells, indexing_rxn=False):
@@ -623,14 +618,15 @@ class TemplateErrorChecking:
         sample_parameters = self.sample_dictionary
         pcr_mix_required = float(self.args.PCR_Volume) * 0.5
         # Force the user to have 4 extra tips as a buffer.
-        left_tips_used = 4
-        right_tips_used = 4
+        left_tips_used = 1
+        right_tips_used = 1
 
         indexing_tips = 0
         if indexing_rxn:
             indexing_tips = used_wells*2
 
         if self.args.LeftPipette == "p20_single_gen2" and pcr_mix_required <= 20:
+
             left_tips_used = used_wells+indexing_tips
         elif self.args.LeftPipette == "p300_single_gen2" and pcr_mix_required > 20:
             left_tips_used = used_wells+indexing_tips
@@ -649,7 +645,7 @@ class TemplateErrorChecking:
             else:
                 sample_concentration = float(sample_parameters[sample_key][3])
 
-            sample_vol = round(template_required/sample_concentration, 2)
+            sample_vol = round(template_required/sample_concentration, ndigits=1)
 
             # Check sample concentration.  At the first low concentration sample return a message.
             msg = self.sample_concentration_check(sample_vol, sample_concentration, sample_parameters[sample_key][2])
@@ -663,7 +659,7 @@ class TemplateErrorChecking:
 
             dilution_required = False
 
-            if sample_vol <= 1.1 and not getattr(self.args, "DilutionPlateSlot"):
+            if sample_vol <= 2.0 and not getattr(self.args, "DilutionPlateSlot"):
                 msg += "Sample {} requires dilution but no --DilutionPlateSlot given.\n"\
                     .format(sample_parameters[sample_key][2])
 
@@ -677,7 +673,7 @@ class TemplateErrorChecking:
             left_tips_used, right_tips_used = self.tip_counter(left_tips_used, right_tips_used, water_vol)
             left_tips_used, right_tips_used = self.tip_counter(left_tips_used, right_tips_used, sample_vol)
 
-        return round(water_required, 1), left_tips_used, int(right_tips_used), msg
+        return round(water_required, ndigits=1), left_tips_used, right_tips_used, msg
 
     def tip_counter(self, left_tips_used, right_tips_used, volume):
         if self.args.LeftPipette == "p20_single_gen2" and volume <= 20:
@@ -702,7 +698,7 @@ class TemplateErrorChecking:
         """
         msg = ""
         if (template_in_rxn/sample_concentration) > self.max_template_vol:
-            min_sample_conc = round(template_in_rxn / self.max_template_vol, 2)
+            min_sample_conc = round(template_in_rxn / self.max_template_vol, ndigits=1)
             msg = "Sample '{}' at {} ng/uL is too dilute.\nMinimum sample concentration required is {} ng/uL for " \
                   "a max template volume of {} uL" \
                 .format(sample_name, sample_concentration, min_sample_conc, self.max_template_vol)
@@ -854,7 +850,7 @@ class TemplateErrorChecking:
         # If template concentration per uL is less than desired template in reaction then no dilution is necessary.
         if sample_concentration <= target_concentration:
             sample_vol = template_in_reaction / sample_concentration
-            return sample_vol, 0, round(self.max_template_vol - sample_vol, 2), self.max_template_vol
+            return sample_vol, 0, round(self.max_template_vol - sample_vol, ndigits=1), self.max_template_vol
 
         # This will test a series of dilutions up to a 1:200.
         for i in range(50):
@@ -863,7 +859,7 @@ class TemplateErrorChecking:
 
             if target_concentration >= diluted_dna_conc >= min_dna_in_reaction:
                 dilution_data = (1, dilution - 1)
-                diluted_sample_vol = round(template_in_reaction / diluted_dna_conc, 2)
+                diluted_sample_vol = round(template_in_reaction / diluted_dna_conc, ndigits=1)
                 reaction_water_vol = self.max_template_vol - diluted_sample_vol
 
                 return dilution_data[0], dilution_data[1], diluted_sample_vol, reaction_water_vol
