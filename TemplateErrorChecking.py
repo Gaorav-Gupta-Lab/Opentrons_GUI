@@ -626,7 +626,6 @@ class TemplateErrorChecking:
             indexing_tips = used_wells*2
 
         if self.args.LeftPipette == "p20_single_gen2" and pcr_mix_required <= 20:
-
             left_tips_used = used_wells+indexing_tips
         elif self.args.LeftPipette == "p300_single_gen2" and pcr_mix_required > 20:
             left_tips_used = used_wells+indexing_tips

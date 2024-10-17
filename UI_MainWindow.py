@@ -42,6 +42,7 @@ class Ui_MainWindow(object):
         self.label.setFont(font1)
         self.label.setFrameShape(QFrame.Box)
         self.label.setAlignment(Qt.AlignCenter)
+
         self.closeGUI_btn = QPushButton(self.centralwidget)
         self.closeGUI_btn.setObjectName(u"closeGUI_btn")
         self.closeGUI_btn.setGeometry(QRect(310, 700, 351, 81))
