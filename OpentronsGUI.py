@@ -100,7 +100,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                                                           format(os.sep, os.getlogin())))
 
         if  os.path.basename(self.path_to_tsv) == "TempTSV.tsv":
-            self.warning_report("Cannot use file name TempTSV.tsv.")
+            self.warning_report("Cannot use file name TempTSV.tsv as input file.")
         elif self.path_to_tsv:
             shutil.copyfile(self.path_to_tsv, self.temp_tsv_path)
         else:
