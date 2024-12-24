@@ -339,6 +339,7 @@ def dispensing_loop(args, loop_count, pipette, source_location, destination_loca
 
 def distribute_reagents(pipette, source_well, destination_wells, dispense_vol):
     """
+    This is not used in the Error Checking Routine.
     Dispense master mix using the distribute function.
     @param pipette:
     @param source_well:
@@ -357,7 +358,7 @@ def distribute_reagents(pipette, source_well, destination_wells, dispense_vol):
     pipette.flow_rate.dispense = 10
 
     pipette.distribute(volume=dispense_vol, source=source_well, dest=destination_wells,
-                       touch_tip=True, blow_out=True, disposal_volume=10, blowout_location='source well')
+                       touch_tip=True, blow_out=True, disposal_volume=1, blowout_location='source well')
 
     pipette.flow_rate.aspirate = default_rate
     pipette.flow_rate.dispense = default_rate
