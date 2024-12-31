@@ -7,7 +7,7 @@ Lineberger Comprehensive Cancer Center
 450 West Drive
 Chapel Hill, NC  27599-7295
 
-Copyright 2024
+Copyright 2025
 """
 import datetime
 import io
@@ -15,7 +15,6 @@ import shutil
 import sys
 import os
 import socket
-# import opentrons.simulate
 from TemplateErrorChecking import TemplateErrorChecking
 from opentrons.simulate import simulate, format_runlog
 from UI_MainWindow import Ui_MainWindow
@@ -24,10 +23,10 @@ from PySide6.QtWidgets import QApplication
 from paramiko import SSHClient, AutoAddPolicy
 from contextlib import redirect_stdout, suppress
 from scp import SCPClient
-# import Tool_Box
+import Tool_Box
 
 
-__version__ = "2.1.0"
+__version__ = "3.0.0b"
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -233,7 +232,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.error_report(slot_error)
                 return
 
-            pipette_error = template_error_check.pipette_error_check()
+            # pipette_error = template_error_check.pipette_error_check()
+            pipette_error = ""
             if pipette_error:
                 self.error_report(pipette_error)
                 return

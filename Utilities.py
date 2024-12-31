@@ -5,7 +5,7 @@ Dennis Simpson
 University of North Carolina at Chapel Hill
 Chapel Hill NC, 27599
 
-@copyright 2023
+@copyright 2025
 
 """
 import csv
@@ -15,7 +15,7 @@ from collections import defaultdict
 from types import SimpleNamespace
 # import Tool_Box as ToolBox
 
-__version__ = "1.2.0"
+__version__ = "2.0.0a"
 
 
 def plate_layout(labware):
@@ -39,9 +39,12 @@ def plate_layout(labware):
         for k in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']:
             layout_data[k] = ['', '', '', '', '', '', '', '', '', '', '', '']
         column_index = [1, 3, 5, 7, 9, 11, 12]
-
+    '''
     if labware == "stacked_96_well" or labware == "96-TipBox" or labware == "bigwell_96_tuberack_200ul_dilution_tube" \
             or labware == "biorad_ddpcr_96_wellplate_100ul" or labware == "biorad_hardshell_96_wellplate_150ul":
+    '''
+
+    if "96" in labware or "ddpcr_plate" in labware:
         for k in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']:
             layout_data[k] = ['', '', '', '', '', '', '', '', '', '', '', '']
         for i in range(12):
