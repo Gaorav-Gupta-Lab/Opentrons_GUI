@@ -5,18 +5,16 @@ University of North Carolina at Chapel Hill
 450 West Drive
 Chapel Hill, NC  27599
 
-@Copyright 2024
+@Copyright 2025
 """
 
 import sys
 from packaging.version import Version
 from collections import defaultdict
-# from types import SimpleNamespace
-# import csv
-# import Tool_Box as ToolBox
+# import Tool_Box
 from Utilities import parse_sample_template, calculate_volumes, plate_layout
 
-__version__ = "2.1.0"
+__version__ = "3.0.0b"
 
 
 class TemplateErrorChecking:
@@ -31,13 +29,18 @@ class TemplateErrorChecking:
         self.left_tip_boxes = []
         self.right_tip_boxes = []
         self.max_template_vol = None
-
+        self.LeftPipette = "p300_single_gen2"
+        self.RightPipette = "p20_single_gen2"
         self.labware_slot_definitions = [
-            "vwrmicrocentrifugetube1.5ml_24_tuberack_1500ul", "stacked_96_well", "8_well_strip_tubes_200ul",
-            "opentrons_96_tiprack_10ul", "opentrons_96_filtertiprack_20ul", "opentrons_96_tiprack_300ul",
-            "vwrscrewcapcentrifugetube5ml_15_tuberack_5000ul", "screwcap_24_tuberack_500ul",
-            "opentrons_24_tuberack_generic_2ml_screwcap", "biorad_ddpcr_96_wellplate_100ul",
-            "bigwell_96_tuberack_200ul_dilution_tube", "biorad_hardshell_96_wellplate_150ul"]
+            "vwrmicrocentrifugetube1.5ml_24_tuberack_1500ul", "vwrscrewcapcentrifugetube5ml_15_tuberack_5000ul",
+            "screwcap_24_tuberack_500ul", "opentrons_24_tuberack_generic_2ml_screwcap",
+            "bigwell_96_tuberack_200ul_dilution_tube", "8_well_strip_tubes_200ul",
+            "biorad_ddpcr_plate_aluminum_block_100ul", "biorad_hardshell_96_wellplate_150ul",
+            "eppendorftwin.tecpcrplates_96_aluminumblock_150ul",
+            "parhelia_temp_module_with_biorad_ddpcr_plate_100ul", "parhelia_temp_module_with_twintec_ddpcr_plate_150ul",
+            "opentrons_96_tiprack_20ul", "opentrons_96_filtertiprack_20ul",
+            "opentrons_96_tiprack_300ul", "opentrons_96_filtertiprack_300ul","stacked_96_well",
+            ]
 
         self.tip_boxes = ["opentrons_96_tiprack_20ul", "opentrons_96_filtertiprack_20ul", "opentrons_96_tiprack_300ul",
                           "opentrons_96_filtertiprack_300ul"]
@@ -116,6 +119,7 @@ class TemplateErrorChecking:
             self.slot_dict[self.args.PCR_PlateSlot]
         except KeyError:
             return "--PCR_PlateSlot {} has no labware defined".format(self.args.PCR_PlateSlot)
+
         self.tip_box_error_check()
         return slot_error
 
@@ -129,15 +133,13 @@ class TemplateErrorChecking:
         pipette_error = False
         print("Checking Pipette Definitions")
 
-        if self.args.LeftPipette:
-            if self.pipette_definition_error_check(pipette_error, self.args.LeftPipette, "Left Pipette"):
-                msg = "The Left Pipette definition {} is not valid\n".format(self.args.LeftPipette)
-        if self.args.RightPipette:
-            if self.pipette_definition_error_check(pipette_error, self.args.RightPipette, "Right Pipette"):
-                msg += "The Right Pipette definition {} is not valid\n".format(self.args.RightPipette)
+        if self.LeftPipette:
+            if self.pipette_definition_error_check(pipette_error, self.LeftPipette, "Left Pipette"):
+                msg = "The Left Pipette definition {} is not valid\n".format(self.LeftPipette)
+        if self.RightPipette:
+            if self.pipette_definition_error_check(pipette_error, self.RightPipette, "Right Pipette"):
+                msg += "The Right Pipette definition {} is not valid\n".format(self.RightPipette)
         if not msg:
-            print("\tPipette definitions passed.")
-        else:
             print("\tPipette definitions passed.")
 
         return msg
@@ -145,8 +147,8 @@ class TemplateErrorChecking:
     def tip_box_error_check(self):
         for slot in self.slot_dict:
             labware = self.slot_dict[slot]
-            lft_pipette_labware = self.pipette_info_dict[self.args.LeftPipette]
-            rt_pipette_labware = self.pipette_info_dict[self.args.RightPipette]
+            lft_pipette_labware = self.pipette_info_dict[self.LeftPipette]
+            rt_pipette_labware = self.pipette_info_dict[self.RightPipette]
             if labware in lft_pipette_labware:
                 self.left_tip_boxes.append(slot)
             elif labware in rt_pipette_labware:
@@ -393,19 +395,19 @@ class TemplateErrorChecking:
         if msg:
             return msg
 
-        if self.args.LeftPipette == "p20_single_gen2":
+        if self.LeftPipette == "p20_single_gen2":
             if left_available < 0:
                 left_available = 0
             if left_available < left_tips_used:
                 msg += "Program requires {}, {} tips.  {} tips provided.\n"\
-                    .format(left_tips_used, self.args.LeftPipette, left_available)
+                    .format(left_tips_used, self.LeftPipette, left_available)
 
-        if self.args.RightPipette == "p300_single_gen2":
+        if self.RightPipette == "p300_single_gen2":
             if right_available < 0:
                 right_available = 0
             if right_available < right_tips_used:
                 msg += "Program requires {}, {} tips.  {} tips provided"\
-                    .format(int(right_tips_used), self.args.RightPipette, right_available)
+                    .format(int(right_tips_used), self.RightPipette, right_available)
         return msg
 
     def missing_parameters(self):
@@ -419,9 +421,16 @@ class TemplateErrorChecking:
             if not self.args.TotalReagentVolume:
                 msg += "--TotalRegentVolume is not defined.\n"
             if not self.args.DNA_in_Reaction:
-                msg += "--DNA_in_Reaction is not defined"
+                msg += "--DNA_in_Reaction is not defined\n"
         if not self.args.WaterResVol:
-            msg += "--WaterResVol is not defined"
+            msg += "--WaterResVol is not defined\n"
+        if self.args.UseTemperatureModule:
+            if not self.args.Temperature:
+                msg += "--Temperature is not defined.\n"
+            if int(self.args.Temperature) < 5 or int(self.args.Temperature) > 99:
+                msg += "--Temperature must be between 5 and 99.\n"
+        if self.args.Temperature and not self.args.UseTemperatureModule:
+            msg += "--UseTemperatureModule is not defined but a --Temperature is provided.\n"
 
         if self.args.ReagentSlot:
             try:
@@ -547,21 +556,6 @@ class TemplateErrorChecking:
         if msg:
             return msg
 
-    @property
-    def labware_slot_definition(self):
-        """
-        Labware that we have on-hand.
-        :return:
-        """
-        labware_list = [
-            "vwrmicrocentrifugetube1.5ml_24_tuberack_1500ul", "stacked_96_well", "8_well_strip_tubes_200ul",
-            "opentrons_96_tiprack_10ul", "opentrons_96_filtertiprack_20ul", "opentrons_96_tiprack_300ul",
-            "vwrscrewcapcentrifugetube5ml_15_tuberack_5000ul", "screwcap_24_tuberack_500ul",
-            "opentrons_24_tuberack_generic_2ml_screwcap", "biorad_ddpcr_96_wellplate_100ul",
-            "bigwell_96_tuberack_200ul_dilution_tube", "biorad_hardshell_96_wellplate_150ul"]
-
-        return labware_list
-
     def well_labels(self):
         """
         Create a dictionary of well labels for each loaded labware.
@@ -591,7 +585,7 @@ class TemplateErrorChecking:
                 well_labels_dict[labware] = w24
             elif "384" in labware:
                 well_labels_dict[labware] = w384
-            elif "96" in labware or "8_well" in labware:
+            elif "96" in labware or "8_well" in labware or "ddpcr_plate" in labware:
                 well_labels_dict[labware] = w96
             elif "_15_tuberack" in labware:
                 well_labels_dict[labware] = w15
@@ -617,7 +611,7 @@ class TemplateErrorChecking:
         """
         sample_parameters = self.sample_dictionary
         pcr_mix_required = float(self.args.PCR_Volume) * 0.5
-        # Force the user to have 4 extra tips as a buffer.
+        # Force the user to have 1 extra tip as a buffer.
         left_tips_used = 1
         right_tips_used = 1
 
@@ -625,14 +619,14 @@ class TemplateErrorChecking:
         if indexing_rxn:
             indexing_tips = used_wells*2
 
-        if self.args.LeftPipette == "p20_single_gen2" and pcr_mix_required <= 20:
+        if self.LeftPipette == "p20_single_gen2" and pcr_mix_required <= 20:
             left_tips_used = used_wells+indexing_tips
-        elif self.args.LeftPipette == "p300_single_gen2" and pcr_mix_required > 20:
+        elif self.LeftPipette == "p300_single_gen2" and pcr_mix_required > 20:
             left_tips_used = used_wells+indexing_tips
 
-        if self.args.RightPipette == "p20_single_gen2" and pcr_mix_required <= 20:
+        if self.RightPipette == "p20_single_gen2" and pcr_mix_required <= 20:
             right_tips_used = used_wells+indexing_tips
-        elif self.args.RightPipette == "p300_single_gen2" and pcr_mix_required > 20:
+        elif self.RightPipette == "p300_single_gen2" and pcr_mix_required > 20:
             right_tips_used = used_wells+indexing_tips
 
         template_required = float(self.args.DNA_in_Reaction)
@@ -675,14 +669,14 @@ class TemplateErrorChecking:
         return round(water_required, ndigits=1), left_tips_used, right_tips_used, msg
 
     def tip_counter(self, left_tips_used, right_tips_used, volume):
-        if self.args.LeftPipette == "p20_single_gen2" and volume <= 20:
+        if self.LeftPipette == "p20_single_gen2" and volume <= 20:
             left_tips_used += 1
-        elif self.args.LeftPipette == "p300_single_gen2" and volume > 20:
+        elif self.LeftPipette == "p300_single_gen2" and volume > 20:
             left_tips_used += 1
 
-        if self.args.RightPipette == "p20_single_gen2" and volume <= 20:
+        if self.RightPipette == "p20_single_gen2" and volume <= 20:
             right_tips_used += 1
-        elif self.args.RightPipette == "p300_single_gen2" and volume > 20:
+        elif self.RightPipette == "p300_single_gen2" and volume > 20:
             right_tips_used += 1
 
         return left_tips_used, right_tips_used
