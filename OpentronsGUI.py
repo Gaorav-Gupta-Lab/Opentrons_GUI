@@ -26,7 +26,7 @@ from scp import SCPClient
 import Tool_Box
 
 
-__version__ = "3.0.0"
+__version__ = "3.0.1"
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):

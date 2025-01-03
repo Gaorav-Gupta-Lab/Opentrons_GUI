@@ -14,7 +14,7 @@ from collections import defaultdict
 # import Tool_Box
 from Utilities import parse_sample_template, calculate_volumes, plate_layout
 
-__version__ = "3.0.0"
+__version__ = "3.0.1"
 
 
 class TemplateErrorChecking:
