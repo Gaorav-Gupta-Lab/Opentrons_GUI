@@ -14,7 +14,7 @@ from collections import defaultdict
 # import Tool_Box
 from Utilities import parse_sample_template, calculate_volumes, plate_layout
 
-__version__ = "3.0.0b"
+__version__ = "3.0.0"
 
 
 class TemplateErrorChecking:
@@ -23,7 +23,7 @@ class TemplateErrorChecking:
         self.sample_dictionary, self.args = parse_sample_template(input_file)
         self.pipette_info_dict = {
             "p20_single_gen2": ["opentrons_96_tiprack_20ul", "opentrons_96_filtertiprack_20ul"],
-            "p300_single_gen2": ["opentrons_96_tiprack_300ul", "opentrons_96_filtertiprack_300ul"]
+            "p300_single_gen2": ["opentrons_96_tiprack_300ul", "opentrons_96_filtertiprack_200ul"]
             }
         self.slot_dict = None
         self.left_tip_boxes = []
@@ -39,11 +39,11 @@ class TemplateErrorChecking:
             "eppendorftwin.tecpcrplates_96_aluminumblock_150ul",
             "parhelia_temp_module_with_biorad_ddpcr_plate_100ul", "parhelia_temp_module_with_twintec_ddpcr_plate_150ul",
             "opentrons_96_tiprack_20ul", "opentrons_96_filtertiprack_20ul",
-            "opentrons_96_tiprack_300ul", "opentrons_96_filtertiprack_300ul","stacked_96_well",
+            "opentrons_96_tiprack_300ul", "opentrons_96_filtertiprack_200ul","stacked_96_well",
             ]
 
         self.tip_boxes = ["opentrons_96_tiprack_20ul", "opentrons_96_filtertiprack_20ul", "opentrons_96_tiprack_300ul",
-                          "opentrons_96_filtertiprack_300ul"]
+                          "opentrons_96_filtertiprack_200ul"]
 
         self.well_label_dict = self.well_labels()
 
