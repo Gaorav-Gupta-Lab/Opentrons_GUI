@@ -26,7 +26,7 @@ from scp import SCPClient
 import Tool_Box
 
 
-__version__ = "3.0.1"
+__version__ = "3.0.3"
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -55,6 +55,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def run_program(self):
         self.warning_report("This Feature is Not Yet Implemented")
         return
+
         program_name = os.path.basename(self.path_to_program)
         cmd = "opentrons_execute {0}{1} -L {0}custom_labware".format(self.server_path, program_name)
         print(cmd)
@@ -75,6 +76,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def cancel_run(self):
         self.warning_report("This Feature is Not Yet Implemented")
         return
+
         stdin, stdout, stderr = self.ssh_client.send("\x03")
         stdout.channel.recv_exit_status()
         response = stdout.readlines()
