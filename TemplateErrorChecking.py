@@ -14,7 +14,7 @@ from collections import defaultdict
 # import Tool_Box
 from Utilities import parse_sample_template, calculate_volumes, plate_layout
 
-__version__ = "3.0.4"
+__version__ = "3.0.5"
 
 
 class TemplateErrorChecking:
@@ -269,11 +269,11 @@ class TemplateErrorChecking:
         """
 
         # Make sure user has provided the correct template version.
-        if "ddPCR" in self.args.Template and Version(self.args.Version) < Version("3.0.0"):
-            return ("{} Parameter Template Version is {}.\nTemplate Version Must Be >= 3.0.0.\n"
+        if "ddPCR" in self.args.Template and Version(self.args.Version) < Version("3.0.1"):
+            return ("{} Parameter Template Version is {}.\nTemplate Version Must Be >= 3.0.1\n"
                     .format(template, self.args.Version))
-        elif "Generic PCR" in self.args.Template and Version(self.args.Version) < Version("3.0.0"):
-            return ("{} Parameter Template Version is {}.\nTemplate Version Must Be >= 3.0.0.\n"
+        elif "Generic PCR" in self.args.Template and Version(self.args.Version) < Version("3.0.1"):
+            return ("{} Parameter Template Version is {}.\nTemplate Version Must Be >= 3.0.1\n"
                     .format(template, self.args.Version))
 
         if self.args.ReagentSlot:
