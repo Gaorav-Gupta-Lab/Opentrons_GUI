@@ -14,7 +14,7 @@ from collections import defaultdict
 # import Tool_Box
 from Utilities import parse_sample_template, calculate_volumes, plate_layout
 
-__version__ = "3.0.3"
+__version__ = "3.0.4"
 
 
 class TemplateErrorChecking:
@@ -32,7 +32,7 @@ class TemplateErrorChecking:
         self.LeftPipette = "p300_single_gen2"
         self.RightPipette = "p20_single_gen2"
         self.labware_slot_definitions = [
-            "vwrmicrocentrifugetube1.5ml_24_tuberack_1500ul", "vwrscrewcapcentrifugetube5ml_15_tuberack_5000ul",
+            "vwrscrewcapcentrifugetube5ml_15_tuberack_5000ul",
             "opentrons_24_tube_rack_vwr_microfuge_tube_1.5ml",
             "screwcap_24_tuberack_500ul", "opentrons_24_tuberack_generic_2ml_screwcap",
             "bigwell_96_tuberack_200ul_dilution_tube", "8_well_strip_tubes_200ul",
