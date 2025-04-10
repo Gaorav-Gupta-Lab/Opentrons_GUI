@@ -6,8 +6,6 @@ University of North Carolina at Chapel Hill
 Lineberger Comprehensive Cancer Center
 450 West Drive
 Chapel Hill, NC  27599-7295
-
-Copyright 2025
 """
 import datetime
 import io
@@ -23,10 +21,14 @@ from PySide6.QtWidgets import QApplication
 from paramiko import SSHClient, AutoAddPolicy
 from contextlib import redirect_stdout, suppress
 from scp import SCPClient
-import Tool_Box
+# import Tool_Box
 
-
-__version__ = "3.0.3"
+__version__ = "4.0.0"
+__author__ = "Dennis A. Simpson"
+__copyright__ = "Copyright 2025, University of North Carolina at Chapel Hill"
+__license__ = "MIT"
+__email__ = "dennis@email.unc.edu"
+__status__ = "Development"
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -240,11 +242,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.error_report(pipette_error)
                 return
 
-            if self.selected_program == "Generic PCR" or self.selected_program == "ddPCR":
+            if self.selected_program == "Generic PCR" or self.selected_program == "ddPCR" or self.selected_program == "Illumina_Dual_Indexing":
                 error_msg = template_error_check.pcr_check(self.selected_program)
-
-            elif self.selected_program == "Illumina_Dual_Indexing":
-                error_msg = template_error_check.illumina_dual_indexing(self.selected_program)
 
             else:
                 error_msg = "Program {} is not yet implemented.\nConsult the code admin."
