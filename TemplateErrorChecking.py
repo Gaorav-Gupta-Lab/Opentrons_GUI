@@ -4,8 +4,6 @@ Dennis A Simpson
 University of North Carolina at Chapel Hill
 450 West Drive
 Chapel Hill, NC  27599
-
-@Copyright 2025
 """
 
 import sys
@@ -14,7 +12,12 @@ from collections import defaultdict
 # import Tool_Box
 from Utilities import parse_sample_template, calculate_volumes, plate_layout
 
-__version__ = "3.0.5"
+__version__ = "4.0.0"
+__author__ = "Dennis A. Simpson"
+__copyright__ = "Copyright 2025, University of North Carolina at Chapel Hill"
+__license__ = "MIT"
+__email__ = "dennis@email.unc.edu"
+__status__ = "Development"
 
 
 class TemplateErrorChecking:
@@ -57,7 +60,7 @@ class TemplateErrorChecking:
         msg = ""
         if not self.args.PCR_Volume:
             msg += "--PCR_Volume is not defined.\n"
-        if self.args.Template.strip() == "Illumina Dual Indexing":
+        if self.args.Template.strip() == "Illumina_Dual_Indexing":
             if not self.args.TotalReagentVolume:
                 msg += "--TotalReagentVolume is not defined.\n"
             if not self.args.DNA_in_Reaction:
@@ -288,7 +291,10 @@ class TemplateErrorChecking:
         if msg:
             return msg
 
-        target_count, msg = self.pcr_targets()
+        if self.args.Template.strip() != "Illumina_Dual_Indexing":
+            target_count, msg = self.pcr_targets()
+        else:
+            target_count = 1
 
         if msg:
             return msg
@@ -319,11 +325,16 @@ class TemplateErrorChecking:
         target_well_count = 0
         for target in target_well_dict:
             # Force user to include extra reagent in tube to account for pipetting errors
-            reagent_used = float(self.args.MasterMixPerRxn) * 1.25
-
+            reagent_used = float(self.args.MasterMixPerRxn) * 1.20
+            print(target_well_dict)
             # Get information about the master mix
-            target_info = getattr(self.args, "Target_{}".format(target))
-            reagent_well_vol = float(target_info[2])
+            if self.args.Template.strip() != "Illumina_Dual_Indexing":
+                target_info = getattr(self.args, "Target_{}".format(target))
+                reagent_well_vol = float(target_info[2])
+                reagent_name = "Target {}".format(target_info[1])
+            else:
+                reagent_well_vol = float(self.args.TotalReagentVolume)
+                reagent_name = "Indexing Master Mix"
 
             # How much master mix per reaction?
             reagent_aspirated = float(self.args.MasterMixPerRxn)
@@ -352,8 +363,7 @@ class TemplateErrorChecking:
 
             target_well_count += len(target_well_list)
             if reagent_used >= reagent_well_vol:
-                reagent_name = target_info[1]
-                msg = "Program requires minimum of {} uL of Target {}.  You have {} uL."\
+                msg = "Program requires minimum of {} uL of {}.  You have {} uL."\
                       .format(reagent_used, reagent_name, reagent_well_vol)
                 return msg
 
@@ -443,8 +453,8 @@ class TemplateErrorChecking:
 
     def illumina_dual_indexing(self, template):
 
-        if self.args.Version != "v1.1.0":
-            return "{} template must be v1.1.0, you are using {}".format(template, self.args.Version)
+        if self.args.Version != "v2.0.1":
+            return "{} template must be v2.0.1, you are using {}".format(template, self.args.Version)
 
         msg, reagent_labware = self.missing_parameters()
 
@@ -731,10 +741,11 @@ class TemplateErrorChecking:
             sample_well = sample_parameters[sample_key][1]
             targets = sample_parameters[sample_key][4].split(",")
 
-            try:
-                replicates = int(sample_parameters[sample_key][5])
-            except ValueError:
-                msg += "Replica count not defined for sample {}\n".format(sample_name)
+            if self.args.Template.strip() != "Illumina_Dual_Indexing":
+                try:
+                    replicates = int(sample_parameters[sample_key][5])
+                except ValueError:
+                    msg += "Replica count not defined for sample {}\n".format(sample_name)
 
             try:
                 sample_concentration = float(sample_parameters[sample_key][3])
@@ -774,6 +785,9 @@ class TemplateErrorChecking:
 
             if msg:
                 return "", "", "", "", "", msg
+
+            if self.args.Template.strip() == "Illumina_Dual_Indexing":
+                replicates = 1
 
             sample_wells = []
             for target in targets:
