@@ -1,4 +1,4 @@
-opentrons>=8.1.0
+opentrons>=8.2.0
 paramiko>=2.8.1
 PySide6>=6.8.0
 scp>=0.13.3
