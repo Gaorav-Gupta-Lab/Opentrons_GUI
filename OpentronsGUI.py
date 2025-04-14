@@ -141,12 +141,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         :rtype: object
         :return:
         """
-
         # Establish a connection to the robot.
         self.ssh_client = self.connect_to_ot2()
 
-        # If communications with the OT-2 cannot be established then let the user know.  This might be an expected 
-        # behavior.
+        """
+        If communications with the OT-2 cannot be established then let the user know.  This might be an expected 
+        behavior.
+        """
         if not self.ssh_client:
             self.warning_report("Communications with OT-2 not established.  If this was expected then you can safely "
                                 "ignore this message")
@@ -159,17 +160,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if not self.path_to_tsv:
             self.select_file()
 
-        # program_path = os.path.dirname(self.path_to_program)
-        # program_name = os.path.basename(self.path_to_program)
-
         # Initialize scp and transfer the files to the robot.
         scp = SCPClient(self.ssh_client.get_transport())
         # TSV file transfer
         scp.put(files=self.path_to_tsv, remote_path="{}{}".format(self.server_path, self.server_tsv_file),
                 preserve_times=True)
-
-        # Program file transfer
-        # scp.put(files=self.path_to_program, remote_path=self.server_path, preserve_times=True)
 
         # Confirm files have transferred.
         cmd = "ls {}".format(self.server_path)
@@ -184,9 +179,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if self.server_tsv_file not in transferred_files:
             self.error_report("TSV File Transfer Failed")
             self.critical_error = True
-            # elif program_name not in transferred_files:
-            # self.error_report("Program File {} Transfer Failed".format(program_name))
-            # self.critical_error = True
         else:
             self.success_report("All Files Transferred Successfully", "File Transfer")
 
@@ -236,7 +228,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.error_report(slot_error)
                 return
 
-            # pipette_error = template_error_check.pipette_error_check()
             pipette_error = ""
             if pipette_error:
                 self.error_report(pipette_error)
@@ -262,7 +253,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         elif self.selected_program == "ddPCR":
             self.path_to_program = "C:{0}Opentrons_Programs{0}PCR.py".format(os.sep)
 
-        # self.run_simulation_output.insertPlainText('Begin Program Simulation.\n'.format(f.getvalue()))
         self.simulate_program()
         if not self.critical_error:
             self.run_simulation_output.insertPlainText("\n")
@@ -353,7 +343,6 @@ def center_window(central_widget):
     # print(screen_geometry.width(), screen_geometry.height())
 
     central_widget.resize(screen_geometry.width()*w_scale, screen_geometry.height()*h_scale)
-    #central_widget.setGeometry(QtWidgets.QStyle.alignedRect(QtCore.Qt.LeftToRight, QtCore.Qt.AlignCenter,
     central_widget.setGeometry(QtWidgets.QStyle.alignedRect(QtCore.Qt.LayoutDirection.LeftToRight,
                                                             QtCore.Qt.AlignmentFlag.AlignCenter,
                                                             central_widget.size(), screen_geometry, ), )

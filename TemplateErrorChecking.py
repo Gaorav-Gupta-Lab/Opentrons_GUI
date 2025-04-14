@@ -9,7 +9,6 @@ Chapel Hill, NC  27599
 import sys
 from packaging.version import Version
 from collections import defaultdict
-# import Tool_Box
 from Utilities import parse_sample_template, calculate_volumes, plate_layout
 
 __version__ = "4.0.0"
@@ -46,8 +45,9 @@ class TemplateErrorChecking:
             "opentrons_96_tiprack_300ul", "opentrons_96_filtertiprack_200ul","stacked_96_well",
             ]
 
-        self.tip_boxes = ["opentrons_96_tiprack_20ul", "opentrons_96_filtertiprack_20ul", "opentrons_96_tiprack_300ul",
-                          "opentrons_96_filtertiprack_200ul"]
+        self.tip_boxes = ["opentrons_96_tiprack_20ul", "opentrons_96_filtertiprack_20ul",
+                          "opentrons_96_tiprack_300ul", "opentrons_96_filtertiprack_200ul"
+                          ]
 
         self.well_label_dict = self.well_labels()
 
@@ -800,13 +800,13 @@ class TemplateErrorChecking:
                     dest_well_count += 1
 
             sample_data_dict[sample_key] = [sample_vol, diluent_vol, diluted_sample_vol, sample_wells]
-
-        # Define our no template control wells for the targets.
-        for i in range(len(target_well_dict)):
-            well = plate_layout_by_column[dest_well_count]
-            used_wells.append(well)
-            water_well_dict[well] = self.max_template_vol
-            dest_well_count += 1
+        if self.args.Template.strip() != "Illumina_Dual_Indexing":
+            # Define our no template control wells for the targets.
+            for i in range(len(target_well_dict)):
+                well = plate_layout_by_column[dest_well_count]
+                used_wells.append(well)
+                water_well_dict[well] = self.max_template_vol
+                dest_well_count += 1
 
         return sample_data_dict, water_well_dict, target_well_dict, used_wells, layout_data, msg
 
