@@ -21,9 +21,9 @@ from PySide6.QtWidgets import QApplication
 from paramiko import SSHClient, AutoAddPolicy
 from contextlib import redirect_stdout, suppress
 from scp import SCPClient
-# import Tool_Box
+import Tool_Box
 
-__version__ = "4.0.0"
+__version__ = "4.1.0"
 __author__ = "Dennis A. Simpson"
 __copyright__ = "Copyright 2025, University of North Carolina at Chapel Hill"
 __license__ = "MIT"
@@ -212,9 +212,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         slot_error = template_error_check.slot_error_check()
         pipette_error = template_error_check.pipette_error_check()
         tip_box_error = template_error_check.tip_box_error_check()
-        error_msg = template_error_check.droplet_pcr()
+        error_msg = template_error_check.pcr_check(self.selected_program)
         Tool_Box.debug_messenger(error_msg)
         '''
+
         with redirect_stdout(f):
             # Initialize template error checking
             value_error = template_error_check.parameter_checks()
@@ -248,7 +249,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.path_to_program = "C:{0}Opentrons_Programs{0}PCR.py".format(os.sep)
 
         elif self.selected_program == "Illumina_Dual_Indexing":
-            self.path_to_program = "C:{0}Opentrons_Programs{0}Illumina_Dual_Indexing.py".format(os.sep)
+            self.path_to_program = "C:{0}Opentrons_Programs{0}PCR.py".format(os.sep)
 
         elif self.selected_program == "ddPCR":
             self.path_to_program = "C:{0}Opentrons_Programs{0}PCR.py".format(os.sep)
