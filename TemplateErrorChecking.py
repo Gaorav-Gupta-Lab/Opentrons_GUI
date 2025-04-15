@@ -11,7 +11,7 @@ from packaging.version import Version
 from collections import defaultdict
 from Utilities import parse_sample_template, calculate_volumes, plate_layout
 
-__version__ = "4.0.0"
+__version__ = "4.1.0"
 __author__ = "Dennis A. Simpson"
 __copyright__ = "Copyright 2025, University of North Carolina at Chapel Hill"
 __license__ = "MIT"
@@ -34,7 +34,7 @@ class TemplateErrorChecking:
         self.LeftPipette = "p300_single_gen2"
         self.RightPipette = "p20_single_gen2"
         self.labware_slot_definitions = [
-            "vwrscrewcapcentrifugetube5ml_15_tuberack_5000ul",
+            "vwrscrewcapcentrifugetube5ml_15_tuberack_5000ul", "opentrons_15_tuberack_5000ul_diamond_tubes",
             "opentrons_24_tube_rack_vwr_microfuge_tube_1.5ml",
             "screwcap_24_tuberack_500ul", "opentrons_24_tuberack_generic_2ml_screwcap",
             "bigwell_96_tuberack_200ul_dilution_tube", "8_well_strip_tubes_200ul",
@@ -42,7 +42,8 @@ class TemplateErrorChecking:
             "eppendorftwin.tecpcrplates_96_aluminumblock_150ul",
             "parhelia_temp_module_with_biorad_ddpcr_plate_100ul", "parhelia_temp_module_with_twintec_ddpcr_plate_150ul",
             "opentrons_96_tiprack_20ul", "opentrons_96_filtertiprack_20ul",
-            "opentrons_96_tiprack_300ul", "opentrons_96_filtertiprack_200ul","stacked_96_well",
+            "opentrons_96_tiprack_300ul", "opentrons_96_filtertiprack_200ul",
+            "stacked_vwr_96_well_semi_skirt_96_well_plate_200ul", "stacked_eppendorf_twin.tec_pcr_96_well_plate_200ul"
             ]
 
         self.tip_boxes = ["opentrons_96_tiprack_20ul", "opentrons_96_filtertiprack_20ul",
@@ -153,9 +154,9 @@ class TemplateErrorChecking:
             labware = self.slot_dict[slot]
             lft_pipette_labware = self.pipette_info_dict[self.LeftPipette]
             rt_pipette_labware = self.pipette_info_dict[self.RightPipette]
-            if labware in lft_pipette_labware:
+            if labware in lft_pipette_labware and slot not in self.left_tip_boxes:
                 self.left_tip_boxes.append(slot)
-            elif labware in rt_pipette_labware:
+            elif labware in rt_pipette_labware and slot not in self.right_tip_boxes:
                 self.right_tip_boxes.append(slot)
 
         return
@@ -326,7 +327,7 @@ class TemplateErrorChecking:
         for target in target_well_dict:
             # Force user to include extra reagent in tube to account for pipetting errors
             reagent_used = float(self.args.MasterMixPerRxn) * 1.20
-            print(target_well_dict)
+
             # Get information about the master mix
             if self.args.Template.strip() != "Illumina_Dual_Indexing":
                 target_info = getattr(self.args, "Target_{}".format(target))
@@ -342,18 +343,11 @@ class TemplateErrorChecking:
 
             # Currently using a distribute function.
             p300_tips_used += target_count
-            reagent_used += reagent_aspirated*len(target_well_list)
-
-            """
-            # Count the number of tips required
-            for well in target_well_list:
-                reagent_used += reagent_aspirated
-                
-                if reagent_aspirated <= 20:
-                    p20_tips_used += 1
-                else:
-                    p300_tips_used += 1
-                """
+            if self.args.Template.strip() != "Illumina_Dual_Indexing":
+                reagent_used += reagent_aspirated*len(target_well_list)
+            else:
+                # Add 5% to volume
+                reagent_used = (len(used_wells)*float(self.args.MasterMixPerRxn))*1.05
 
             # Add a reagent tips for the no template control
             if float(self.args.PCR_Volume)-reagent_aspirated <= 20:
@@ -362,6 +356,7 @@ class TemplateErrorChecking:
                 p300_tips_used += 1
 
             target_well_count += len(target_well_list)
+
             if reagent_used >= reagent_well_vol:
                 msg = "Program requires minimum of {} uL of {}.  You have {} uL."\
                       .format(reagent_used, reagent_name, reagent_well_vol)
@@ -372,23 +367,30 @@ class TemplateErrorChecking:
 
         if target_well_count == 0:
             return "Number of wells containing targets is 0.  Check TSV file for errors in sample table."
-
-        water_aspirated, p20_tips_used, p300_tips_used = \
-            self.empty_well_vol(plate_layout(self.slot_dict[self.args.PCR_PlateSlot]), target_well_count, p20_tips_used,
-                                p300_tips_used, water_aspirated)
+        if self.args.Template.strip() != "Illumina_Dual_Indexing":
+            water_aspirated, p20_tips_used, p300_tips_used = \
+                self.empty_well_vol(plate_layout(self.slot_dict[self.args.PCR_PlateSlot]), target_well_count,
+                                    p20_tips_used, p300_tips_used, water_aspirated)
+        else:
+            p300_tips_used = 2
+            p20_tips_used = (len(used_wells)*3)+4
 
         # Check Water Volume
         if int(self.args.WaterResVol) <= water_aspirated:
             msg = "Program requires minimum of {} uL water.  You have {} uL."\
-                .format(water_aspirated, self.args.WaterResVol)
+                .format(round(water_aspirated, 0), self.args.WaterResVol)
             return msg
 
         # Check if there are enough tips
         msg = self.available_tips(p20_tips_used, p300_tips_used)
+
         if msg:
             return msg
 
-    def available_tips(self, left_tips_used, right_tips_used):
+    def available_tips(self, p20_tips_used, p300_tips_used):
+        right_tips_used = p20_tips_used
+        left_tips_used = p300_tips_used
+
         msg = ""
         tip_box_layout, layout_list = plate_layout(labware="96-TipBox")
         try:
@@ -406,18 +408,18 @@ class TemplateErrorChecking:
         if msg:
             return msg
 
-        if self.LeftPipette == "p20_single_gen2":
+        if self.LeftPipette == "p300_single_gen2":
             if left_available < 0:
                 left_available = 0
             if left_available < left_tips_used:
-                msg += "Program requires {}, {} tips.  {} tips provided.\n"\
+                msg += "Program requires {},  {} tips.  \n{} tips provided.\n\n"\
                     .format(left_tips_used, self.LeftPipette, left_available)
 
-        if self.RightPipette == "p300_single_gen2":
+        if self.RightPipette == "p20_single_gen2":
             if right_available < 0:
                 right_available = 0
             if right_available < right_tips_used:
-                msg += "Program requires {}, {} tips.  {} tips provided"\
+                msg += "Program requires {},  {} tips.  \n{} tips provided"\
                     .format(int(right_tips_used), self.RightPipette, right_available)
         return msg
 
