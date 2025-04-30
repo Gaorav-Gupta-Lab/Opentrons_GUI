@@ -3,15 +3,17 @@
 Dennis A Simpson
 University of North Carolina at Chapel Hill
 450 West Drive
-Chapel Hill, NC  27599
+Chapel Hill, NC 27599
 """
-
+import csv
 import sys
+from types import SimpleNamespace
+
 from packaging.version import Version
 from collections import defaultdict
-from Utilities import parse_sample_template, calculate_volumes, plate_layout
+from Utilities import calculate_volumes, plate_layout
 
-__version__ = "4.1.0"
+__version__ = "4.1.2"
 __author__ = "Dennis A. Simpson"
 __copyright__ = "Copyright 2025, University of North Carolina at Chapel Hill"
 __license__ = "MIT"
@@ -22,7 +24,7 @@ __status__ = "Development"
 class TemplateErrorChecking:
     def __init__(self, input_file):
         self.stdout = sys.stdout
-        self.sample_dictionary, self.args = parse_sample_template(input_file)
+        self.sample_dictionary, self.args = self.parse_sample_template(input_file)
         self.pipette_info_dict = {
             "p20_single_gen2": ["opentrons_96_tiprack_20ul", "opentrons_96_filtertiprack_20ul"],
             "p300_single_gen2": ["opentrons_96_tiprack_300ul", "opentrons_96_filtertiprack_200ul"]
@@ -242,6 +244,7 @@ class TemplateErrorChecking:
         target_count = 0
         no_target_count = 0
         msg = ""
+
         for i in range(10):
             target = getattr(self.args, "Target_{}".format(i+1))
             if target:
@@ -873,3 +876,47 @@ class TemplateErrorChecking:
                 reaction_water_vol = self.max_template_vol - diluted_sample_vol
 
                 return dilution_data[0], dilution_data[1], diluted_sample_vol, reaction_water_vol
+
+    def parse_sample_template(self, parameter_file):
+        """
+        Parse the TSV file and return data objects to run def.
+        @return:
+        """
+        line_num = 0
+        options_dictionary = defaultdict(str)
+        index_file = list(csv.reader(open(parameter_file), delimiter='\t'))
+        sample_dictionary = defaultdict(list)
+
+        for line in index_file:
+            if line_num == 0:
+                options_dictionary["Version"] = line[1]
+                options_dictionary["Template"] = line[0].strip("#")
+            line_num += 1
+            col_count = len(line)
+            tmp_line = []
+            sample_key = ""
+            if col_count > 0 and "#" not in line[0] and len(line[0].split("#")[0]) > 0:
+                # Skip any lines that are blank or comments.
+                for i in range(7):
+                    try:
+                        line[i] = line[i].split("#")[0]  # Strip out end of line comments.
+                    except IndexError:
+                        continue
+
+                    if i == 0 and "--" in line[0]:
+                        key = line[0].strip('--')
+                        key_value = line[1]
+                        if "Target_" in key or "PositiveControl_" in key:
+                            try:
+                                key_value = (line[1], line[2], line[3])
+                            except IndexError:
+                                pass
+                        options_dictionary[key] = key_value
+                    elif "--" not in line[0] and int(line[0]) < 12:
+                        sample_key = line[0], line[1]
+                        tmp_line.append(line[i])
+                if sample_key:
+                    sample_dictionary[sample_key] = tmp_line
+
+        self.args = SimpleNamespace(**options_dictionary)
+        return sample_dictionary, self.args
