@@ -13,7 +13,7 @@ from packaging.version import Version
 from collections import defaultdict
 from Utilities import calculate_volumes, plate_layout
 
-__version__ = "4.1.2"
+__version__ = "4.1.3"
 __author__ = "Dennis A. Simpson"
 __copyright__ = "Copyright 2025, University of North Carolina at Chapel Hill"
 __license__ = "MIT"
@@ -24,7 +24,7 @@ __status__ = "Development"
 class TemplateErrorChecking:
     def __init__(self, input_file):
         self.stdout = sys.stdout
-        self.sample_dictionary, self.args = self.parse_sample_template(input_file)
+        self.sample_dictionary, self.args, self.msg = self.parse_sample_template(input_file)
         self.pipette_info_dict = {
             "p20_single_gen2": ["opentrons_96_tiprack_20ul", "opentrons_96_filtertiprack_20ul"],
             "p300_single_gen2": ["opentrons_96_tiprack_300ul", "opentrons_96_filtertiprack_200ul"]
@@ -60,32 +60,37 @@ class TemplateErrorChecking:
         :return:
         """
 
-        msg = ""
         if not self.args.PCR_Volume:
-            msg += "--PCR_Volume is not defined.\n"
+            self.msg += "--PCR_Volume is not defined.\n"
         if self.args.Template.strip() == "Illumina_Dual_Indexing":
             if not self.args.TotalReagentVolume:
-                msg += "--TotalReagentVolume is not defined.\n"
+                self.msg += "--TotalReagentVolume is not defined.\n"
             if not self.args.DNA_in_Reaction:
-                msg += "--DNA_in_Reaction is not defined"
+                self.msg += "--DNA_in_Reaction is not defined"
         if not self.args.WaterResVol:
-            msg += "--WaterResVol is not defined.\n"
+            self.msg += "--WaterResVol is not defined.\n"
         if not self.args.WaterResWell:
-            msg += "--WaterResWell is not defined.\n"
+            self.msg += "--WaterResWell is not defined.\n"
+        if not self.args.WaterResWell.isupper():
+            self.msg += "--WaterResWell is not uppercase.\n"
         if not self.args.ReagentSlot:
-            msg += "--ReagentSlot is not defined.\n"
+            self.msg += "--ReagentSlot is not defined.\n"
         if not self.args.PCR_PlateSlot:
-            msg += "--PCR_PlateSlot is not defined.\n"
+            self.msg += "--PCR_PlateSlot is not defined.\n"
         if not self.args.BottomOffset:
-            msg += "--BottomOffset is not defined.\n"
+            self.msg += "--BottomOffset is not defined.\n"
         if not self.args.LeftPipetteFirstTip:
-            msg += "--LeftPipetteFirstTip is not defined.\n"
+            self.msg += "--LeftPipetteFirstTip is not defined.\n"
+        if not self.args.LeftPipetteFirstTip.isupper():
+            self.msg += "--LeftPipetteFirstTip is not uppercase.\n"
         if not self.args.RightPipetteFirstTip:
-            msg += "--RightPipetteFirstTip is not defined.\n"
+            self.msg += "--RightPipetteFirstTip is not defined.\n"
+        if not self.args.RightPipetteFirstTip.isupper():
+            self.msg += "--RightPipetteFirstTip is not uppercase.\n"
         if not self.args.User:
-            msg += "--User name is missing from template.\n"
+            self.msg += "--User name is missing from template.\n"
 
-        return msg
+        return self.msg
 
     def slot_error_check(self):
         """
@@ -746,6 +751,10 @@ class TemplateErrorChecking:
             sample_well = sample_parameters[sample_key][1]
             targets = sample_parameters[sample_key][4].split(",")
 
+            if not sample_well.isupper():
+                msg += ("Well {} for sample {} is not upper case.  Sample wells must be upper case.\n"
+                        .format(sample_well, sample_name))
+
             if self.args.Template.strip() != "Illumina_Dual_Indexing":
                 try:
                     replicates = int(sample_parameters[sample_key][5])
@@ -886,7 +895,7 @@ class TemplateErrorChecking:
         options_dictionary = defaultdict(str)
         index_file = list(csv.reader(open(parameter_file), delimiter='\t'))
         sample_dictionary = defaultdict(list)
-
+        msg = ""
         for line in index_file:
             if line_num == 0:
                 options_dictionary["Version"] = line[1]
@@ -909,8 +918,11 @@ class TemplateErrorChecking:
                         if "Target_" in key or "PositiveControl_" in key:
                             try:
                                 key_value = (line[1], line[2], line[3])
+                                if not line[2].isupper():
+                                    msg += "Well for {} is not upper case.  Wells must be upper case.".format(line[0])
                             except IndexError:
                                 pass
+
                         options_dictionary[key] = key_value
                     elif "--" not in line[0] and int(line[0]) < 12:
                         sample_key = line[0], line[1]
@@ -919,4 +931,4 @@ class TemplateErrorChecking:
                     sample_dictionary[sample_key] = tmp_line
 
         self.args = SimpleNamespace(**options_dictionary)
-        return sample_dictionary, self.args
+        return sample_dictionary, self.args, msg

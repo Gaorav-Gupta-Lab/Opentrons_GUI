@@ -54,6 +54,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.cancel_run_btn.pressed.connect(self.cancel_run)
         self.run_ot2.pressed.connect(self.run_program)
 
+
     def run_program(self):
         self.warning_report("This Feature is Not Yet Implemented")
         return
