@@ -918,8 +918,8 @@ class TemplateErrorChecking:
                         if "Target_" in key or "PositiveControl_" in key:
                             try:
                                 key_value = (line[1], line[2], line[3])
-                                if not line[2].isupper():
-                                    msg += "Well for {} is not upper case.  Wells must be upper case.".format(line[0])
+                                if not line[2].isupper() and line[3]:
+                                    msg += "Well for {} is not upper case.  Wells must be upper case.\n".format(line[0])
                             except IndexError:
                                 pass
 
