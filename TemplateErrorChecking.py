@@ -8,12 +8,12 @@ Chapel Hill, NC 27599
 import csv
 import sys
 from types import SimpleNamespace
-
 from packaging.version import Version
 from collections import defaultdict
+import Tool_Box
 from Utilities import calculate_volumes, plate_layout
 
-__version__ = "4.1.3"
+__version__ = "4.3.0"
 __author__ = "Dennis A. Simpson"
 __copyright__ = "Copyright 2025, University of North Carolina at Chapel Hill"
 __license__ = "MIT"
@@ -60,6 +60,10 @@ class TemplateErrorChecking:
         :return:
         """
 
+        if not self.args.User:
+            self.msg += "Must Provide a --User name "
+        if len(self.args.User) > 15:
+            self.msg += "--User parameter is too long.  Must be less than 15 characters."
         if not self.args.PCR_Volume:
             self.msg += "--PCR_Volume is not defined.\n"
         if self.args.Template.strip() == "Illumina_Dual_Indexing":
@@ -205,12 +209,12 @@ class TemplateErrorChecking:
             diluent_vol = sample_data_dict[sample_key][1]
             diluted_sample_vol = sample_data_dict[sample_key][2]
 
-            # If no dilution is necessary, dispense sample and continue
+            # If no dilution is necessary, dispense the sample and continue
             if diluted_sample_vol == 0:
                 if sample_vol <= 20:
-                    p20_tips_used += 1
+                    p20_tips_used += len(sample_dest_wells)
                 else:
-                    p300_tips_used += 1
+                    p300_tips_used += len(sample_dest_wells)
                 continue
 
             # Adjust volume of diluted sample to make sure there is enough
@@ -224,9 +228,9 @@ class TemplateErrorChecking:
 
             diluent_vol = diluent_vol * diluted_template_factor
             if diluted_sample_vol <= 20:
-                p20_tips_used += 1
+                p20_tips_used += len(sample_dest_wells)
             else:
-                p300_tips_used += 1
+                p300_tips_used += len(sample_dest_wells)
 
             if (sample_vol*diluted_template_factor) <= 20:
                 p20_tips_used += 1
@@ -239,6 +243,7 @@ class TemplateErrorChecking:
                 p300_tips_used += 1
 
             water_aspirated += diluent_vol
+
         return water_aspirated, p20_tips_used, p300_tips_used
 
     def pcr_targets(self):
@@ -258,13 +263,13 @@ class TemplateErrorChecking:
                 else:
                     target_count += 1
                     if not target[0]:
-                        msg += "{} Well definition is missing".format(target[i])
+                        msg += "--Target_{} Well definition is missing\n".format(i+1)
                     if target[0] == self.args.WaterResWell.upper():
-                        msg += "{} Target Well definition is the same as the --WaterResWell".format(target[i])
+                        msg += "--Target_{} Well definition is the same as the --WaterResWell\n".format(i+1)
                     if not target[1]:
-                        msg += "{} Target Name definition is missing".format(target[i])
+                        msg += "--Target_{} Name definition is missing\n".format(i+1)
                     if not target[2]:
-                        msg += "{} Target Volume definition is missing".format(target[i])
+                        msg += "--Target_{} Volume definition is missing\n".format(i+1)
 
         if no_target_count == 10:
             msg = "No targets defined"
@@ -315,11 +320,11 @@ class TemplateErrorChecking:
             return msg
 
         p20_tips_used = 0
-        p300_tips_used = 0
+        p300_tips_used = 1
         water_aspirated = 0
 
         for well in water_well_dict:
-            # Currently I am using distribute for the water.  That is 1 p300 tip
+            # Currently, I am using the built-in distribute function for the water.  That is 1 p300 tip
             water_aspirated += water_well_dict[well]
             """
             if water_vol <= 20:
@@ -340,7 +345,7 @@ class TemplateErrorChecking:
             if self.args.Template.strip() != "Illumina_Dual_Indexing":
                 target_info = getattr(self.args, "Target_{}".format(target))
                 reagent_well_vol = float(target_info[2])
-                reagent_name = "Target {}".format(target_info[1])
+                reagent_name = "target {}".format(target_info[0])
             else:
                 reagent_well_vol = float(self.args.TotalReagentVolume)
                 reagent_name = "Indexing Master Mix"
@@ -350,14 +355,13 @@ class TemplateErrorChecking:
             target_well_list = target_well_dict[target]
 
             # Currently using a distribute function.
-            p300_tips_used += target_count
             if self.args.Template.strip() != "Illumina_Dual_Indexing":
                 reagent_used += reagent_aspirated*len(target_well_list)
             else:
                 # Add 5% to volume
                 reagent_used = (len(used_wells)*float(self.args.MasterMixPerRxn))*1.05
 
-            # Add a reagent tips for the no template control
+            # Add a reagent tip for the no template control
             if float(self.args.PCR_Volume)-reagent_aspirated <= 20:
                 p20_tips_used += 1
             else:
@@ -372,9 +376,11 @@ class TemplateErrorChecking:
 
         water_aspirated, p20_tips_used, p300_tips_used = \
             self.dispense_samples(sample_data_dict, water_aspirated, p20_tips_used, p300_tips_used)
+        # Tool_Box.debug_messenger("Target Count:  {}  P20 Tips Used: {}  P300 Tips Used: {}  ".format(target_count, p20_tips_used, p300_tips_used))
 
         if target_well_count == 0:
             return "Number of wells containing targets is 0.  Check TSV file for errors in sample table."
+
         if self.args.Template.strip() != "Illumina_Dual_Indexing":
             water_aspirated, p20_tips_used, p300_tips_used = \
                 self.empty_well_vol(plate_layout(self.slot_dict[self.args.PCR_PlateSlot]), target_well_count,
@@ -391,6 +397,7 @@ class TemplateErrorChecking:
 
         # Check if there are enough tips
         msg = self.available_tips(p20_tips_used, p300_tips_used)
+
 
         if msg:
             return msg
@@ -900,6 +907,7 @@ class TemplateErrorChecking:
             if line_num == 0:
                 options_dictionary["Version"] = line[1]
                 options_dictionary["Template"] = line[0].strip("#")
+
             line_num += 1
             col_count = len(line)
             tmp_line = []
