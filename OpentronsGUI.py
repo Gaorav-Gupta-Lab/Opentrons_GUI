@@ -5,7 +5,7 @@ Dennis Simpson
 University of North Carolina at Chapel Hill
 Lineberger Comprehensive Cancer Center
 450 West Drive
-Chapel Hill, NC  27599-7295
+Chapel Hill, NC 27599-7295
 """
 import datetime
 import io
@@ -23,7 +23,7 @@ from contextlib import redirect_stdout, suppress
 from scp import SCPClient
 import Tool_Box
 
-__version__ = "4.1.0"
+__version__ = "4.3.0"
 __author__ = "Dennis A. Simpson"
 __copyright__ = "Copyright 2025, University of North Carolina at Chapel Hill"
 __license__ = "MIT"
@@ -112,7 +112,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def connect_to_ot2(self):
         """
-        Establish SSH connection to robot.
+        Establish SSH connection to the robot.
         :return:
         """
         robot_name = "OT2CEP20180915A20"
