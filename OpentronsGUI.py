@@ -127,10 +127,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         ssh_client.load_system_host_keys()
         ssh_client.set_missing_host_key_policy(AutoAddPolicy())
         try:
+            key_file = 'C:{0}Users{0}robotron{0}.ssh{0}ot2_ssh_key'.format(os.sep)
             ssh_client.connect(hostname=host_ip, username='root',
-                               key_filename='C:{0}Users{0}robotron{0}ot2_ssh_key'.format(os.sep))
+                               key_filename='C:{0}Users{0}robotron{0}.ssh{0}ot2_ssh_key'.format(os.sep))
         except OSError:
-            self.error_report("SSH unable to establish connection to robot.  Secure Key error")
+            self.error_report("SSH unable to establish connection to robot.  Secure Key error. {}  {}".format(host_ip, key_file))
             self.critical_error = True
             raise SystemExit(1)
 

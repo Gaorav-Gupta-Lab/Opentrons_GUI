@@ -41,7 +41,7 @@ import re
 # import resource
 
 __author__ = 'Dennis A. Simpson'
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 
 def __infile(self):
@@ -126,12 +126,15 @@ def peak_memory():
     :return:
     """
 
-    peak_memory_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+    # peak_memory_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+    process = psutil.Process(os.getpid())
+    mem_bytes = process.memory_info().rss/(1024*1024)
 
     if platform.system() == 'darwin':
-        peak_memory_mb /= 1024
-
-    return int(peak_memory_mb)
+        # peak_memory_mb /= 1024
+        mem_bytes /= 1024
+    # int(peak_memory_mb)
+    return mem_bytes
 
 
 class UsageError(Exception):
