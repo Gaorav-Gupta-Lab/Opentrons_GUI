@@ -37,7 +37,7 @@ from datetime import datetime
 from contextlib import suppress
 import re
 # import magic
-import pkg_resources as resource
+# import pkg_resources as resource
 # import resource
 
 __author__ = 'Dennis A. Simpson'
