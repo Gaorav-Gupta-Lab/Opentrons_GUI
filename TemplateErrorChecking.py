@@ -13,9 +13,9 @@ from collections import defaultdict
 # import Tool_Box
 from Utilities import calculate_volumes, plate_layout
 
-__version__ = "4.3.1"
+__version__ = "4.4.0"
 __author__ = "Dennis A. Simpson"
-__copyright__ = "Copyright 2025, University of North Carolina at Chapel Hill"
+__copyright__ = "Copyright 2026, University of North Carolina at Chapel Hill"
 __license__ = "MIT"
 __email__ = "dennis@email.unc.edu"
 __status__ = "Development"
@@ -902,18 +902,30 @@ class TemplateErrorChecking:
         options_dictionary = defaultdict(str)
 
         index_file = list(csv.reader(open(parameter_file), delimiter='\t'))
-        # index_file = self.encode_test(parameter_file)
+        well_rows = ["A", "B", "C", "D"]
+        well_columns = ["1", "2", "3", "4", "5", "6"]
+        robot_sample_wells = []
+        for row in well_rows:
+            for column in well_columns:
+                well = row+column
+                robot_sample_wells.append(well)
         sample_dictionary = defaultdict(list)
         msg = ""
+        parse_samples = False
+        line_check_keys = ["LeftPipetteFirstTip","RightPipetteFirstTip", "WaterResWell"]
+
         for line in index_file:
             if line_num == 0:
                 options_dictionary["Version"] = line[1]
                 options_dictionary["Template"] = line[0].strip("#")
+            elif line[0] == "# Source Slot":
+                parse_samples = True
 
             line_num += 1
             col_count = len(line)
             tmp_line = []
             sample_key = ""
+
             if col_count > 0 and "#" not in line[0] and len(line[0].split("#")[0]) > 0:
                 # Skip any lines that are blank or comments.
                 for i in range(7):
@@ -924,21 +936,40 @@ class TemplateErrorChecking:
 
                     if i == 0 and "--" in line[0]:
                         key = line[0].strip('--')
+
+                        if key in line_check_keys:
+                            if not line[1].isupper():
+                                msg += "{} well {} must be uppercase.\n".format(line[0], line[1])
+
                         key_value = line[1]
                         if "Target_" in key or "PositiveControl_" in key:
+                            if line[2] and not line[2].isupper():
+                                msg += "{} well {} must be uppercase.\n".format(line[0], line[3])
+
                             try:
                                 key_value = (line[1], line[2], line[3])
-                                if not line[2].isupper() and line[3]:
-                                    msg += "Well for {} is not upper case.  Wells must be upper case.\n".format(line[0])
+
                             except IndexError:
-                                pass
+                               pass
 
                         options_dictionary[key] = key_value
-                    elif "--" not in line[0] and int(line[0]) < 12:
+                    elif parse_samples:
                         sample_key = line[0], line[1]
                         tmp_line.append(line[i])
-                if sample_key:
-                    sample_dictionary[sample_key] = tmp_line
+
+                if parse_samples:
+                    # Make sure sample slot and well designations are valid.
+                    if not line[1].isupper():
+                        msg += "Sample {} well {} must be uppercase.\n".format(line[2], line[1])
+
+                    elif line[1] not in robot_sample_wells:
+                        msg += "Sample {} well designation {} is not a valid well.\n".format(line[2], line[1])
+
+                    if int(line[0]) < 1 or int(line[0]) > 11:
+                        msg += "Slot {} for Sample {} is not valid.  Must be >0 and <12.\n".format(line[0], line[2])
+
+            if sample_key:
+                sample_dictionary[sample_key] = tmp_line
 
         self.args = SimpleNamespace(**options_dictionary)
         return sample_dictionary, self.args, msg
