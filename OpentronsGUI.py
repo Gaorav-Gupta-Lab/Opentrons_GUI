@@ -23,7 +23,7 @@ from contextlib import redirect_stdout, suppress
 from scp import SCPClient
 import Tool_Box
 
-__version__ = "4.3.0"
+__version__ = "4.6.0"
 __author__ = "Dennis A. Simpson"
 __copyright__ = "Copyright 2025, University of North Carolina at Chapel Hill"
 __license__ = "MIT"
