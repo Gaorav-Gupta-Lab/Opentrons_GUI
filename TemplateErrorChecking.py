@@ -10,12 +10,12 @@ import sys
 from types import SimpleNamespace
 from packaging.version import Version
 from collections import defaultdict
-import Tool_Box
+# import Tool_Box
 from Utilities import calculate_volumes, plate_layout
 
-__version__ = "4.3.0"
+__version__ = "4.4.0"
 __author__ = "Dennis A. Simpson"
-__copyright__ = "Copyright 2025, University of North Carolina at Chapel Hill"
+__copyright__ = "Copyright 2026, University of North Carolina at Chapel Hill"
 __license__ = "MIT"
 __email__ = "dennis@email.unc.edu"
 __status__ = "Development"
@@ -174,7 +174,7 @@ class TemplateErrorChecking:
 
     def slot_usage_error_check(self, labware, type_check):
         """
-        Check that labware in slots is appropriate for program being executed.
+        Check that labware in slots is appropriate for the program being executed.
         :param labware:
         :param type_check:
         :return:
@@ -285,7 +285,7 @@ class TemplateErrorChecking:
         :rtype: object
         """
 
-        # Make sure user has provided the correct template version.
+        # Make sure the user has provided the correct template version.
         if "ddPCR" in self.args.Template and Version(self.args.Version) < Version("3.0.1"):
             return ("{} Parameter Template Version is {}.\nTemplate Version Must Be >= 3.0.1\n"
                     .format(template, self.args.Version))
@@ -376,7 +376,7 @@ class TemplateErrorChecking:
 
         water_aspirated, p20_tips_used, p300_tips_used = \
             self.dispense_samples(sample_data_dict, water_aspirated, p20_tips_used, p300_tips_used)
-        # Tool_Box.debug_messenger("Target Count:  {}  P20 Tips Used: {}  P300 Tips Used: {}  ".format(target_count, p20_tips_used, p300_tips_used))
+        # Tool_Box.debug_messenger("Target Count: {} P20 Tips Used: {}  P300 Tips Used: {} ".format(target_count, p20_tips_used, p300_tips_used))
 
         if target_well_count == 0:
             return "Number of wells containing targets is 0.  Check TSV file for errors in sample table."
@@ -586,7 +586,7 @@ class TemplateErrorChecking:
 
     def well_labels(self):
         """
-        Create a dictionary of well labels for each loaded labware.
+        Create a dictionary of the well labels for each loaded labware.
         :return:
         """
 
@@ -668,7 +668,7 @@ class TemplateErrorChecking:
 
             sample_vol = round(template_required/sample_concentration, ndigits=1)
 
-            # Check sample concentration.  At the first low concentration sample return a message.
+            # Check sample concentration.  At the first low-concentration sample, return a message.
             msg = self.sample_concentration_check(sample_vol, sample_concentration, sample_parameters[sample_key][2])
             if msg:
                 return 0, 0, False, msg
@@ -876,7 +876,7 @@ class TemplateErrorChecking:
         """
         min_dna_in_reaction = template_in_reaction / self.max_template_vol
 
-        # If template concentration per uL is less than desired template in reaction then no dilution is necessary.
+        # If template concentration per uL is less than the desired template in the reaction, no dilution is necessary.
         if sample_concentration <= target_concentration:
             sample_vol = template_in_reaction / sample_concentration
             return sample_vol, 0, round(self.max_template_vol - sample_vol, ndigits=1), self.max_template_vol
@@ -900,43 +900,97 @@ class TemplateErrorChecking:
         """
         line_num = 0
         options_dictionary = defaultdict(str)
+
         index_file = list(csv.reader(open(parameter_file), delimiter='\t'))
+        well_rows = ["A", "B", "C", "D"]
+        well_columns = ["1", "2", "3", "4", "5", "6"]
+        robot_sample_wells = []
+        for row in well_rows:
+            for column in well_columns:
+                well = row+column
+                robot_sample_wells.append(well)
         sample_dictionary = defaultdict(list)
         msg = ""
+        parse_samples = False
+        line_check_keys = ["LeftPipetteFirstTip","RightPipetteFirstTip", "WaterResWell"]
+
         for line in index_file:
             if line_num == 0:
                 options_dictionary["Version"] = line[1]
                 options_dictionary["Template"] = line[0].strip("#")
+            elif line[0] == "# Source Slot":
+                parse_samples = True
 
             line_num += 1
             col_count = len(line)
             tmp_line = []
             sample_key = ""
+
             if col_count > 0 and "#" not in line[0] and len(line[0].split("#")[0]) > 0:
                 # Skip any lines that are blank or comments.
                 for i in range(7):
                     try:
-                        line[i] = line[i].split("#")[0]  # Strip out end of line comments.
+                        line[i] = line[i].split("#")[0]  # Strip out end-of-line comments.
                     except IndexError:
                         continue
 
                     if i == 0 and "--" in line[0]:
                         key = line[0].strip('--')
+
+                        if key in line_check_keys:
+                            if not line[1].isupper():
+                                msg += "{} well {} must be uppercase.\n".format(line[0], line[1])
+
                         key_value = line[1]
                         if "Target_" in key or "PositiveControl_" in key:
+                            if line[2] and not line[2].isupper():
+                                msg += "{} well {} must be uppercase.\n".format(line[0], line[3])
+
                             try:
                                 key_value = (line[1], line[2], line[3])
-                                if not line[2].isupper() and line[3]:
-                                    msg += "Well for {} is not upper case.  Wells must be upper case.\n".format(line[0])
+
                             except IndexError:
-                                pass
+                               pass
 
                         options_dictionary[key] = key_value
-                    elif "--" not in line[0] and int(line[0]) < 12:
+                    elif parse_samples:
                         sample_key = line[0], line[1]
                         tmp_line.append(line[i])
-                if sample_key:
-                    sample_dictionary[sample_key] = tmp_line
+
+                if parse_samples:
+                    # Make sure sample slot and well designations are valid.
+                    if not line[1].isupper():
+                        msg += "Sample {} well {} must be uppercase.\n".format(line[2], line[1])
+
+                    elif line[1] not in robot_sample_wells:
+                        msg += "Sample {} well designation {} is not a valid well.\n".format(line[2], line[1])
+
+                    if int(line[0]) < 1 or int(line[0]) > 11:
+                        msg += "Slot {} for Sample {} is not valid.  Must be >0 and <12.\n".format(line[0], line[2])
+
+            if sample_key:
+                sample_dictionary[sample_key] = tmp_line
 
         self.args = SimpleNamespace(**options_dictionary)
         return sample_dictionary, self.args, msg
+
+    @staticmethod
+    def encode_test(path):
+        """Debugging function.  macOS encodes the text in a weird way."""
+        encodings_to_try = ("utf-8", "utf-8-BOM", "utf-16", "utf-16-le", "utf-16-be", "cp1252")
+        last_err = None
+
+        for enc in encodings_to_try:
+            try:
+                with open(path, mode="r", encoding=enc, newline="") as f:
+                    return list(csv.reader(f, delimiter="\t"))
+            except UnicodeError as e:
+                last_err = e
+                continue
+
+        # If nothing worked, raise a clear, actionable error
+        raise UnicodeError(
+            f"Could not decode file '{path}'. Tried encodings: {', '.join(encodings_to_try)}. "
+            "Please save the file as UTF-8 (without BOM) and try again."
+        ) from last_err
+
